@@ -1,6 +1,12 @@
+import { ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react'
 import React from 'react'
 
-const AllPackageTable = () => {
+const AllPackageTable = ({ recentPackages }) => {
+    const typeBadgeClassMap = {
+        "AI Generated": "bg-violet-100 text-violet-600",
+        Manual: "bg-blue-100 text-blue-600",
+        "MD Prompt": "bg-orange-100 text-orange-600",
+    };
     return (
         <>
 
@@ -56,7 +62,7 @@ const AllPackageTable = () => {
                     </table>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-3 text-sm text-slate-500">
-                    <p>Showing 1 to 10 of 128 packages</p>
+                    <p>Showing 1 to {recentPackages.length} of {recentPackages.length} packages</p>
                     <div className="flex items-center gap-2">
                         <button className="rounded-md border border-slate-200 p-2 text-slate-400">
                             <ChevronLeft size={14} />

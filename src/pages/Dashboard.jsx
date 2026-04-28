@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Briefcase,
     Sparkles,
@@ -13,6 +13,9 @@ import Sidebar from "../components/Sidebar";
 import BookingsOverview from "../components/BookingsOverview";
 import DashboardStatsCard from "../components/DashboardStatsCard";
 import CreateNewPackage from "../components/CreateNewPackage";
+import API_URL from "../api";
+import AllPackageTable from "../components/AllPackageTable";
+
 
 const statsCards = [
     {
@@ -55,118 +58,7 @@ const statsCards = [
     },
 ];
 
-const recentPackages = [
-    {
-        name: "Thailand Getaway",
-        route: "Bangkok - Phuket",
-        destination: "Thailand",
-        duration: "6D / 5N",
-        type: "AI Generated",
-        status: "Published",
-        bookings: 48,
-        updated: "12 May, 2025",
-        image: "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?auto=format&fit=crop&w=200&q=80",
-    },
-    {
-        name: "Kerala Backwaters",
-        route: "Kochi - Alleppey - Munnar",
-        destination: "Kerala",
-        duration: "5D / 4N",
-        type: "Manual",
-        status: "Published",
-        bookings: 36,
-        updated: "11 May, 2025",
-        image: "https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=200&q=80",
-    },
-    {
-        name: "Dubai Explorer",
-        route: "Dubai - Abu Dhabi",
-        destination: "Dubai",
-        duration: "4D / 3N",
-        type: "MD Prompt",
-        status: "Draft",
-        bookings: 12,
-        updated: "10 May, 2025",
-        image: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=200&q=80",
-    },
-    {
-        name: "Bali Bliss",
-        route: "Ubud - Kuta - Nusa Dua",
-        destination: "Bali",
-        duration: "6D / 5N",
-        type: "AI Generated",
-        status: "Published",
-        bookings: 62,
-        updated: "09 May, 2025",
-        image: "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?auto=format&fit=crop&w=200&q=80",
-    },
-    {
-        name: "Singapore Delight",
-        route: "Singapore",
-        destination: "Singapore",
-        duration: "3D / 2N",
-        type: "Manual",
-        status: "Published",
-        bookings: 41,
-        updated: "08 May, 2025",
-        image: "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=200&q=80",
-    },
-    {
-        name: "Maldives Escape",
-        route: "Male - North Male Atoll",
-        destination: "Maldives",
-        duration: "5D / 4N",
-        type: "Manual",
-        status: "Published",
-        bookings: 29,
-        updated: "07 May, 2025",
-        image: "https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=200&q=80",
-    },
-    {
-        name: "Japan Discovery",
-        route: "Tokyo - Kyoto - Osaka",
-        destination: "Japan",
-        duration: "8D / 7N",
-        type: "MD Prompt",
-        status: "Draft",
-        bookings: 17,
-        updated: "06 May, 2025",
-        image: "https://images.unsplash.com/photo-1492571350019-22de08371fd3?auto=format&fit=crop&w=200&q=80",
-    },
-    {
-        name: "Swiss Adventure",
-        route: "Zurich - Interlaken - Lucerne",
-        destination: "Switzerland",
-        duration: "7D / 6N",
-        type: "AI Generated",
-        status: "Published",
-        bookings: 33,
-        updated: "05 May, 2025",
-        image: "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=200&q=80",
-    },
-    {
-        name: "Andaman Retreat",
-        route: "Port Blair - Havelock",
-        destination: "Andaman",
-        duration: "5D / 4N",
-        type: "Manual",
-        status: "Published",
-        bookings: 21,
-        updated: "04 May, 2025",
-        image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=200&q=80",
-    },
-    {
-        name: "Vietnam Highlights",
-        route: "Hanoi - Da Nang - Ho Chi Minh",
-        destination: "Vietnam",
-        duration: "6D / 5N",
-        type: "AI Generated",
-        status: "Draft",
-        bookings: 15,
-        updated: "03 May, 2025",
-        image: "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=200&q=80",
-    },
-];
+const fallbackImage = "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?auto=format&fit=crop&w=200&q=80";
 
 const destinationBreakdown = [
     { name: "Thailand", value: 35, color: "#6d5efc" },
@@ -183,18 +75,69 @@ const typeBreakdown = [
     { name: "MD Prompt", count: 35, percentText: "27.3%", chartPercent: 27, color: "#ffa44b" },
 ];
 
-const typeBadgeClassMap = {
-    "AI Generated": "bg-violet-100 text-violet-600",
-    Manual: "bg-blue-100 text-blue-600",
-    "MD Prompt": "bg-orange-100 text-orange-600",
-};
 
-const statusBadgeClassMap = {
-    Published: "bg-emerald-100 text-emerald-600",
-    Draft: "bg-amber-100 text-amber-600",
-};
-
+//
 const Dashboard = () => {
+    const [recentPackages, setRecentPackages] = useState([]);
+    const liveStatsCards = useMemo(
+        () =>
+            statsCards.map((card) =>
+                card.title === "Total Packages"
+                    ? { ...card, value: String(recentPackages.length) }
+                    : card
+            ),
+        [recentPackages.length]
+    );
+    
+    useEffect(() => {
+        const loadRecentPackages = async () => {
+            try {
+                const response = await fetch(`${API_URL}/packages`);
+                const data = await response.json();
+                const rows = Array.isArray(data) ? data : [];
+                setRecentPackages(rows);
+            } catch (error) {
+                console.error("Failed to load recent packages", error);
+                setRecentPackages([]);
+            }
+        };
+
+        loadRecentPackages();
+    }, []);
+
+    
+
+    const mappedRecentPackages = useMemo(() => {
+        return recentPackages.slice(0, 10).map((pkg) => {
+            const days = pkg?.duration?.days ?? 0;
+            const nights = pkg?.duration?.nights ?? 0;
+            const typeLabel =
+                pkg?.createdVia === "ai"
+                    ? "AI Generated"
+                    : pkg?.createdVia === "md"
+                        ? "MD Prompt"
+                        : "Manual";
+            const destination = pkg?.state || pkg?.city || "-";
+            const updatedDate = pkg?.updatedAt || pkg?.createdAt;
+            const route = pkg?.itinerary
+                ?.map((day) => day?.title)
+                .filter(Boolean)
+                .slice(0, 3)
+                .join(" - ");
+
+            return {
+                name: pkg?.title || "Untitled Package",
+                route: route || pkg?.city || destination,
+                destination,
+                duration: `${days}D / ${nights}N`,
+                type: typeLabel,
+                bookings: pkg?.bookingsCount ?? 0,
+                updated: updatedDate ? new Date(updatedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-",
+                image: pkg?.coverImage || fallbackImage,
+            };
+        });
+    }, [recentPackages]);
+
     const typeChartData = typeBreakdown.map((item) => ({
         name: item.name,
         value: item.chartPercent,
@@ -215,7 +158,7 @@ const Dashboard = () => {
                     </div>
 
                     <section className="dashboardCards mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                        {statsCards.map((card) => (
+                        {liveStatsCards.map((card) => (
                             <DashboardStatsCard key={card.title}
                                 title={card.title}
                                 value={card.value}
@@ -239,74 +182,7 @@ const Dashboard = () => {
                     <div className="mt-4 newsection">
                         <div className="mt-5 grid gap-4 xl:grid-cols-12">
                             <div className="col-span-8 h-full">
-                                <section className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                                    <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-                                        <h3 className="text-3xl font-semibold text-slate-900">Recent Packages</h3>
-                                        <button className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-600 hover:bg-violet-100">
-                                            View all
-                                        </button>
-                                    </div>
-                                    <div className="flex-1 overflow-auto">
-                                        <table className="w-full min-w-[860px]">
-                                            <thead className="bg-slate-50 text-left text-sm text-slate-600">
-                                                <tr>
-                                                    <th className="px-5 py-3 font-semibold">Package Name</th>
-                                                    <th className="px-5 py-3 font-semibold">Destination</th>
-                                                    <th className="px-5 py-3 font-semibold">Days / Nights</th>
-                                                    <th className="px-5 py-3 font-semibold">Type</th>
-                                                    <th className="px-5 py-3 font-semibold">Bookings</th>
-                                                    <th className="px-5 py-3 font-semibold">Updated</th>
-                                                    <th className="px-5 py-3 font-semibold" />
-                                                </tr>
-                                            </thead>
-                                            <tbody className="text-sm text-slate-700">
-                                                {recentPackages.map((pkg) => (
-                                                    <tr key={pkg.name} className="border-t border-slate-100">
-                                                        <td className="px-5 py-3">
-                                                            <div className="flex items-center gap-3">
-                                                                <img src={pkg.image} alt={pkg.name} className="h-10 w-10 rounded-lg object-cover" />
-                                                                <div>
-                                                                    <p className="font-semibold text-slate-800">{pkg.name}</p>
-                                                                    <p className="text-xs text-slate-500">{pkg.route}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-5 py-3">{pkg.destination}</td>
-                                                        <td className="px-5 py-3">{pkg.duration}</td>
-                                                        <td className="px-5 py-3">
-                                                            <span className={`rounded-md px-2 py-1 text-xs font-semibold ${typeBadgeClassMap[pkg.type]}`}>
-                                                                {pkg.type}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-5 py-3">{pkg.bookings}</td>
-                                                        <td className="px-5 py-3">{pkg.updated}</td>
-                                                        <td className="px-5 py-3">
-                                                            <button className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                                                                <MoreVertical size={16} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-3 text-sm text-slate-500">
-                                        <p>Showing 1 to 10 of 128 packages</p>
-                                        <div className="flex items-center gap-2">
-                                            <button className="rounded-md border border-slate-200 p-2 text-slate-400">
-                                                <ChevronLeft size={14} />
-                                            </button>
-                                            <button className="h-8 w-8 rounded-md bg-violet-100 text-sm font-semibold text-violet-600">1</button>
-                                            <button className="h-8 w-8 rounded-md text-sm font-semibold text-slate-500">2</button>
-                                            <button className="h-8 w-8 rounded-md text-sm font-semibold text-slate-500">3</button>
-                                            <span className="px-1">...</span>
-                                            <button className="h-8 w-8 rounded-md text-sm font-semibold text-slate-500">26</button>
-                                            <button className="rounded-md border border-slate-200 p-2 text-slate-500">
-                                                <ChevronRight size={14} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </section>
+                                <AllPackageTable recentPackages={mappedRecentPackages} />
                             </div>
                             <div className="col-span-4 h-full">
                                 <div className="grid h-full gap-4 md:grid-cols-1">
@@ -325,7 +201,7 @@ const Dashboard = () => {
                                                 </PieChart>
                                             </ResponsiveContainer>
                                             <div className="pointer-events-none absolute left-1/2 top-1/2 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-center">
-                                                <p className="text-3xl font-semibold text-slate-900">128</p>
+                                                <p className="text-3xl font-semibold text-slate-900"></p>
                                                 <p className="text-sm text-slate-500">Total</p>
                                             </div>
                                         </div>
