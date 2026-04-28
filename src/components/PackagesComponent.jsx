@@ -197,6 +197,7 @@ const packageRows = [
 
 const PackagesComponent = () => {
   const [packages, setPackages] = useState(packageRows);
+  const [isCardsLoading, setIsCardsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [destinationFilter, setDestinationFilter] = useState("All Destinations");
   const [durationFilter, setDurationFilter] = useState("All Durations");
@@ -208,6 +209,11 @@ const PackagesComponent = () => {
   const [selectedPackage, setSelectedPackage] = useState(null);
 
   const pageSize = viewMode === "grid" ? 8 : 5;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsCardsLoading(false), 700);
+    return () => clearTimeout(timer);
+  }, []);
 
   const destinationOptions = useMemo(() => {
     return ["All Destinations", ...new Set(packages.map((pkg) => pkg.destination))];
@@ -436,7 +442,23 @@ const PackagesComponent = () => {
 
       {viewMode === "grid" ? (
         <div className="mt-6 grid gap-3 lg:grid-cols-2 2xl:grid-cols-4">
-          {paginatedRows.map((pkg) => (
+          {isCardsLoading
+            ? Array.from({ length: pageSize }).map((_, idx) => (
+                <article
+                  key={`grid-skeleton-${idx}`}
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                >
+                  <div className="h-40 animate-pulse bg-slate-200" />
+                  <div className="p-3">
+                    <div className="h-5 w-36 animate-pulse rounded bg-slate-200" />
+                    <div className="mt-2 h-3 w-28 animate-pulse rounded bg-slate-200" />
+                    <div className="mt-3 border-t border-slate-100 pt-2.5">
+                      <div className="h-3 w-full animate-pulse rounded bg-slate-200" />
+                    </div>
+                  </div>
+                </article>
+              ))
+            : paginatedRows.map((pkg) => (
             <article
               key={pkg.id}
               onClick={() => setSelectedPackage(pkg)}
@@ -488,7 +510,27 @@ const PackagesComponent = () => {
         </div>
       ) : (
         <div className="mt-6 space-y-3">
-          {paginatedRows.map((pkg) => (
+          {isCardsLoading
+            ? Array.from({ length: pageSize }).map((_, idx) => (
+                <article
+                  key={`list-skeleton-${idx}`}
+                  className="grid grid-cols-[180px_1fr] gap-3 rounded-2xl border border-slate-200 bg-white p-2.5"
+                >
+                  <div className="h-28 w-full animate-pulse rounded-xl bg-slate-200" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-2">
+                      <div className="h-5 w-40 animate-pulse rounded bg-slate-200" />
+                      <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
+                      <div className="h-3 w-48 animate-pulse rounded bg-slate-200" />
+                    </div>
+                    <div className="space-y-2 text-right">
+                      <div className="h-6 w-20 animate-pulse rounded bg-slate-200" />
+                      <div className="h-3 w-16 animate-pulse rounded bg-slate-200" />
+                    </div>
+                  </div>
+                </article>
+              ))
+            : paginatedRows.map((pkg) => (
             <article
               key={pkg.id}
               onClick={() => setSelectedPackage(pkg)}
@@ -524,14 +566,17 @@ const PackagesComponent = () => {
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
         <p>
-          Showing {filteredRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to{" "}
-          {Math.min(currentPage * pageSize, filteredRows.length)} of {filteredRows.length} packages
+          {isCardsLoading
+            ? "Loading packages..."
+            : `Showing ${filteredRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to ${
+                Math.min(currentPage * pageSize, filteredRows.length)
+              } of ${filteredRows.length} packages`}
         </p>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
+            disabled={isCardsLoading || currentPage === 1}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 enabled:hover:bg-slate-50 disabled:opacity-50"
           >
             <ChevronLeft size={14} />
@@ -543,6 +588,7 @@ const PackagesComponent = () => {
                 key={pageNumber}
                 type="button"
                 onClick={() => setCurrentPage(pageNumber)}
+                disabled={isCardsLoading}
                 className={`h-9 w-9 rounded-lg border text-sm ${
                   currentPage === pageNumber
                     ? "border-violet-600 bg-violet-600 text-white"
@@ -556,7 +602,7 @@ const PackagesComponent = () => {
           <button
             type="button"
             onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
+            disabled={isCardsLoading || currentPage === totalPages}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 enabled:hover:bg-slate-50 disabled:opacity-50"
           >
             <ChevronRight size={14} />

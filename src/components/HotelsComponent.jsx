@@ -92,6 +92,7 @@ const HotelsComponent = () => {
     const start = (currentPage - 1) * pageSize;
     return filteredRows.slice(start, start + pageSize);
   }, [currentPage, filteredRows]);
+  const skeletonRows = Array.from({ length: pageSize });
 
   const cityOptions = useMemo(() => {
     return ["All Cities", ...new Set(hotels.map((hotel) => hotel.city))];
@@ -280,11 +281,24 @@ const HotelsComponent = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {paginatedRows.map((hotel) => (
+              {loading
+                ? skeletonRows.map((_, index) => (
+                  <tr key={`hotel-skeleton-${index}`} className={`${index % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
+                    <td className="px-4 py-3"><div className="h-4 w-32 animate-pulse rounded bg-slate-200" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-16 animate-pulse rounded bg-slate-200" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-20 animate-pulse rounded bg-slate-200" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-16 animate-pulse rounded bg-slate-200" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-12 animate-pulse rounded bg-slate-200" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-12 animate-pulse rounded bg-slate-200" /></td>
+                    <td className="px-4 py-3"><div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" /></td>
+                    <td className="px-4 py-3"><div className="h-8 w-20 animate-pulse rounded bg-slate-200" /></td>
+                  </tr>
+                ))
+                : paginatedRows.map((hotel, index) => (
                 <tr
                   key={hotel._id}
                   onClick={() => setDetailHotelId(hotel._id)}
-                  className="cursor-pointer hover:bg-slate-50/70"
+                  className={`cursor-pointer ${index % 2 === 0 ? "bg-white" : "bg-slate-50/40"} hover:bg-slate-50/70`}
                 >
                   <td className="px-4 py-3">
                     <span className="font-medium text-slate-700">{hotel.name}</span>
@@ -334,7 +348,7 @@ const HotelsComponent = () => {
                 </tr>
               ))}
 
-              {paginatedRows.length === 0 && (
+              {!loading && paginatedRows.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                     No hotels found for the selected filters.
@@ -347,14 +361,15 @@ const HotelsComponent = () => {
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
           <p>
-            Showing {filteredRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to{" "}
-            {Math.min(currentPage * pageSize, filteredRows.length)} of {filteredRows.length} hotels
+            {loading
+              ? "Loading hotels..."
+              : `Showing ${filteredRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to ${Math.min(currentPage * pageSize, filteredRows.length)} of ${filteredRows.length} hotels`}
           </p>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
+              disabled={loading || currentPage === 1}
               className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 enabled:hover:bg-slate-50 disabled:opacity-50"
             >
               <ChevronLeft size={14} />
@@ -367,9 +382,10 @@ const HotelsComponent = () => {
                   key={pageNumber}
                   type="button"
                   onClick={() => setCurrentPage(pageNumber)}
+                  disabled={loading}
                   className={`h-8 w-8 rounded-lg border text-sm ${currentPage === pageNumber
-                      ? "border-violet-600 bg-violet-600 text-white"
-                      : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                    ? "border-violet-600 bg-violet-600 text-white"
+                    : "border-slate-200 text-slate-500 hover:bg-slate-50"
                     }`}
                 >
                   {pageNumber}
@@ -380,7 +396,7 @@ const HotelsComponent = () => {
             <button
               type="button"
               onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
+              disabled={loading || currentPage === totalPages}
               className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 enabled:hover:bg-slate-50 disabled:opacity-50"
             >
               <ChevronRight size={14} />

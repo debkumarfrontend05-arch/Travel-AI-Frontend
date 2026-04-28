@@ -146,14 +146,16 @@ const customSelectStyles = {
   valueContainer: (base) => ({ ...base, padding: "0 12px" }),
   placeholder: (base) => ({ ...base, color: "#94a3b8", fontSize: 14 }),
   singleValue: (base) => ({ ...base, color: "#1e293b", fontSize: 14 }),
-  menu: (base) => ({ ...base, zIndex: 60 }),
+  menu: (base) => ({ ...base, zIndex: 9999 }),
+  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
 };
 
 const CreateNewPackage = () => {
+  const selectPortalTarget = typeof document !== "undefined" ? document.body : null;
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [isEditActivityModalOpen, setIsEditActivityModalOpen] = useState(false);
-  const [coverImage, setCoverImage] = useState(null);
+  const [filename, setFilename] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [isManualSaving, setIsManualSaving] = useState(false);
   const [manualPackageName, setManualPackageName] = useState("");
@@ -167,13 +169,13 @@ const CreateNewPackage = () => {
 
   const resetField = () => {
     console.log('Clicked');
-    
+    setFilename(null);
     setDestination(null);
     setStartLocation(null);
     setEndLocation(null);
     setNights(null);
     setDays(null);
-    setCoverImage(null);
+    setFilename(null);
   }
 
   const [aiForm, setAiForm] = useState({
@@ -190,8 +192,8 @@ const CreateNewPackage = () => {
     subtitle: "",
   });
   const coverImagePreview = useMemo(
-    () => (coverImage ? URL.createObjectURL(coverImage) : ""),
-    [coverImage]
+    () => (filename ? URL.createObjectURL(filename) : ""),
+    [filename]
   );
 
   const aiCityOptions = useMemo(() => aiCitiesByState[aiForm.state] || [], [aiForm.state]);
@@ -258,7 +260,7 @@ const CreateNewPackage = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setCoverImage(file);
+    setFilename(file);
   };
 
   const handleAiFieldChange = (field, value) => {
@@ -424,22 +426,30 @@ const CreateNewPackage = () => {
     setIsManualSaving(true);
     try {
       const itinerary = buildManualItineraryPayload(manualItineraryData);
-      const payload = {
-        title: manualPackageName.trim(),
-        state: destination.value,
-        city: startLocation.value,
-        duration: {
+      const formPayload = new FormData();
+      formPayload.append("title", manualPackageName.trim());
+      formPayload.append("state", destination.value);
+      formPayload.append("city", startLocation.value);
+      formPayload.append("startCity", startLocation.value);
+      formPayload.append("endCity", endLocation.value);
+      formPayload.append(
+        "duration",
+        JSON.stringify({
           days: Number(days.value),
           nights: Number(nights.value),
-        },
-        itinerary,
-        createdVia: "manual",
-      };
+        })
+      );
+      formPayload.append("itinerary", JSON.stringify(itinerary));
+      formPayload.append("createdVia", "manual");
+
+      if (filename) {
+        // Must match multer field name on backend
+        formPayload.append("image", filename);
+      }
 
       const response = await fetch(`${API_URL}/packages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: formPayload,
       });
 
       if (!response.ok) {
@@ -466,7 +476,7 @@ const CreateNewPackage = () => {
       setEndLocation(null);
       setNights(null);
       setDays(null);
-      setCoverImage(null);
+      setFilename(null);
     } catch (error) {
       console.error("Failed to create package", error);
       alert(error?.message || "Failed to create package.");
@@ -616,6 +626,8 @@ const CreateNewPackage = () => {
                       isClearable
                       isSearchable
                       placeholder="Search State..."
+                      menuPortalTarget={selectPortalTarget}
+                      menuPosition="fixed"
                       styles={customSelectStyles}
                     />
                     <Select
@@ -626,6 +638,8 @@ const CreateNewPackage = () => {
                       isSearchable
                       placeholder="Select start City"
                       isDisabled={!destination}
+                      menuPortalTarget={selectPortalTarget}
+                      menuPosition="fixed"
                       styles={customSelectStyles}
                     />
                     <div className="grid grid-cols-2 gap-3">
@@ -636,6 +650,8 @@ const CreateNewPackage = () => {
                         isClearable
                         isSearchable
                         placeholder="Select nights"
+                        menuPortalTarget={selectPortalTarget}
+                        menuPosition="fixed"
                         styles={customSelectStyles}
                       />
                       <Select
@@ -644,6 +660,8 @@ const CreateNewPackage = () => {
                         onChange={() => { }}
                         isDisabled
                         placeholder="Days (Auto)"
+                        menuPortalTarget={selectPortalTarget}
+                        menuPosition="fixed"
                         styles={customSelectStyles}
                       />
                     </div>
@@ -655,6 +673,8 @@ const CreateNewPackage = () => {
                       isSearchable
                       placeholder="Select end City"
                       isDisabled={!destination}
+                      menuPortalTarget={selectPortalTarget}
+                      menuPosition="fixed"
                       styles={customSelectStyles}
                     />
                   </div>

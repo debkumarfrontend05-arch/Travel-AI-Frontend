@@ -4,9 +4,6 @@ import {
     Sparkles,
     PencilLine,
     UsersRound,
-    MoreVertical,
-    ChevronLeft,
-    ChevronRight,
 } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import Sidebar from "../components/Sidebar";
@@ -79,6 +76,16 @@ const typeBreakdown = [
 //
 const Dashboard = () => {
     const [recentPackages, setRecentPackages] = useState([]);
+    const [isStatsLoading, setIsStatsLoading] = useState(true);
+    const [selectedDeletePackage, setSelectedDeletePackage] = useState(null);
+    const [selectedEditPackage, setSelectedEditPackage] = useState(null);
+    const [editForm, setEditForm] = useState({
+        name: "",
+        destination: "",
+        duration: "",
+        type: "Manual",
+        route: "",
+    });
     const liveStatsCards = useMemo(
         () =>
             statsCards.map((card) =>
@@ -91,6 +98,7 @@ const Dashboard = () => {
     
     useEffect(() => {
         const loadRecentPackages = async () => {
+            setIsStatsLoading(true);
             try {
                 const response = await fetch(`${API_URL}/packages`);
                 const data = await response.json();
@@ -99,6 +107,8 @@ const Dashboard = () => {
             } catch (error) {
                 console.error("Failed to load recent packages", error);
                 setRecentPackages([]);
+            } finally {
+                setIsStatsLoading(false);
             }
         };
 
@@ -108,7 +118,7 @@ const Dashboard = () => {
     
 
     const mappedRecentPackages = useMemo(() => {
-        return recentPackages.slice(0, 10).map((pkg) => {
+        return recentPackages.map((pkg) => {
             const days = pkg?.duration?.days ?? 0;
             const nights = pkg?.duration?.nights ?? 0;
             const typeLabel =
@@ -126,6 +136,7 @@ const Dashboard = () => {
                 .join(" - ");
 
             return {
+                id: pkg?._id || pkg?.id || pkg?.packageId || pkg?.title,
                 name: pkg?.title || "Untitled Package",
                 route: route || pkg?.city || destination,
                 destination,
@@ -134,9 +145,30 @@ const Dashboard = () => {
                 bookings: pkg?.bookingsCount ?? 0,
                 updated: updatedDate ? new Date(updatedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-",
                 image: pkg?.coverImage || fallbackImage,
+                raw: pkg,
             };
         });
     }, [recentPackages]);
+
+    const handleEditPackage = (pkg) => {
+        setEditForm({
+            name: pkg?.name || "",
+            destination: pkg?.destination || "",
+            duration: pkg?.duration || "",
+            type: pkg?.type || "Manual",
+            route: pkg?.route || "",
+        });
+        setSelectedEditPackage(pkg);
+    };
+
+    const handleDeletePackage = (pkg) => {
+        setSelectedDeletePackage(pkg);
+    };
+
+    const handleEditFormChange = (event) => {
+        const { name, value } = event.target;
+        setEditForm((prev) => ({ ...prev, [name]: value }));
+    };
 
     const typeChartData = typeBreakdown.map((item) => ({
         name: item.name,
@@ -167,6 +199,7 @@ const Dashboard = () => {
                                 icon={card.icon}
                                 iconBgClass={card.iconBgClass}
                                 iconColorClass={card.iconColorClass}
+                                isLoading={isStatsLoading}
                                 changeBgClass={card.changeBgClass}
                                 changeTextClass={card.changeTextClass} />
                         ))}
@@ -182,7 +215,12 @@ const Dashboard = () => {
                     <div className="mt-4 newsection">
                         <div className="mt-5 grid gap-4 xl:grid-cols-12">
                             <div className="col-span-8 h-full">
-                                <AllPackageTable recentPackages={mappedRecentPackages} />
+                                <AllPackageTable
+                                    recentPackages={mappedRecentPackages}
+                                    onEditPackage={handleEditPackage}
+                                    onDeletePackage={handleDeletePackage}
+                                    isLoading={isStatsLoading}
+                                />
                             </div>
                             <div className="col-span-4 h-full">
                                 <div className="grid h-full gap-4 md:grid-cols-1">
@@ -201,7 +239,7 @@ const Dashboard = () => {
                                                 </PieChart>
                                             </ResponsiveContainer>
                                             <div className="pointer-events-none absolute left-1/2 top-1/2 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-center">
-                                                <p className="text-3xl font-semibold text-slate-900"></p>
+                                                <p className="text-3xl font-semibold text-slate-900">{recentPackages.length}</p>
                                                 <p className="text-sm text-slate-500">Total</p>
                                             </div>
                                         </div>
@@ -234,7 +272,7 @@ const Dashboard = () => {
                                                 </PieChart>
                                             </ResponsiveContainer>
                                             <div className="pointer-events-none absolute left-1/2 top-1/2 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-center">
-                                                <p className="text-3xl font-semibold text-slate-900">128</p>
+                                                <p className="text-3xl font-semibold text-slate-900">{recentPackages.length}</p>
                                                 <p className="text-sm text-slate-500">Total</p>
                                             </div>
                                         </div>
@@ -257,6 +295,114 @@ const Dashboard = () => {
                     </div>
                 </div>
             </main>
+            {selectedDeletePackage ? (
+                <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+                        <h4 className="text-lg font-semibold text-slate-900">Delete Package</h4>
+                        <p className="mt-2 text-sm text-slate-600">
+                            Are you sure you want to delete{" "}
+                            <span className="font-semibold text-slate-800">{selectedDeletePackage?.name}</span>?
+                        </p>
+                        <div className="mt-5 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedDeletePackage(null)}
+                                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedDeletePackage(null)}
+                                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+            {selectedEditPackage ? (
+                <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4">
+                    <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-xl">
+                        <h4 className="text-lg font-semibold text-slate-900">Edit Package</h4>
+                        <p className="mt-1 text-sm text-slate-500">Update package information for dashboard listing.</p>
+
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                            <label className="grid gap-1 text-sm text-slate-700">
+                                Package Name
+                                <input
+                                    type="text"
+                                    name="name"
+                                    value={editForm.name}
+                                    onChange={handleEditFormChange}
+                                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                                />
+                            </label>
+                            <label className="grid gap-1 text-sm text-slate-700">
+                                Destination
+                                <input
+                                    type="text"
+                                    name="destination"
+                                    value={editForm.destination}
+                                    onChange={handleEditFormChange}
+                                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                                />
+                            </label>
+                            <label className="grid gap-1 text-sm text-slate-700">
+                                Days / Nights
+                                <input
+                                    type="text"
+                                    name="duration"
+                                    value={editForm.duration}
+                                    onChange={handleEditFormChange}
+                                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                                />
+                            </label>
+                            <label className="grid gap-1 text-sm text-slate-700">
+                                Type
+                                <select
+                                    name="type"
+                                    value={editForm.type}
+                                    onChange={handleEditFormChange}
+                                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                                >
+                                    <option value="Manual">Manual</option>
+                                    <option value="AI Generated">AI Generated</option>
+                                    <option value="MD Prompt">MD Prompt</option>
+                                </select>
+                            </label>
+                            <label className="grid gap-1 text-sm text-slate-700 sm:col-span-2">
+                                Route
+                                <input
+                                    type="text"
+                                    name="route"
+                                    value={editForm.route}
+                                    onChange={handleEditFormChange}
+                                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                                />
+                            </label>
+                        </div>
+
+                        <div className="mt-5 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedEditPackage(null)}
+                                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedEditPackage(null)}
+                                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+                            >
+                                Update Package
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 };

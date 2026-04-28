@@ -8,6 +8,7 @@ const DashboardStatsCard = ({
   icon: Icon,
   iconBgClass,
   iconColorClass,
+  isLoading = false,
 }) => {
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]">
@@ -15,18 +16,28 @@ const DashboardStatsCard = ({
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
-            {title}
-          </p>
-          <p className="mt-3 text-4xl font-semibold leading-none tracking-tight text-slate-900">
-            {value}
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            {change ? (
-              <p className="text-sm font-semibold text-emerald-600">{change}</p>
-            ) : null}
-            <p className="text-sm text-slate-400">{subtitle}</p>
-          </div>
+          {isLoading ? (
+            <div className="animate-pulse">
+              <div className="h-3 w-24 rounded bg-slate-200" />
+              <div className="mt-3 h-10 w-20 rounded bg-slate-200" />
+              <div className="mt-3 h-4 w-40 rounded bg-slate-200" />
+            </div>
+          ) : (
+            <>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                {title}
+              </p>
+              <p className="mt-3 text-4xl font-semibold leading-none tracking-tight text-slate-900">
+                {value}
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                {change ? (
+                  <p className="text-sm font-semibold text-emerald-600">{change}</p>
+                ) : null}
+                <p className="text-sm text-slate-400">{subtitle}</p>
+              </div>
+            </>
+          )}
         </div>
 
         <span

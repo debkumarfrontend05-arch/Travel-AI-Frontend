@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BedDouble,
   BusFront,
@@ -646,7 +647,7 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
   const [activePanel, setActivePanel] = useState("");
   const [formState, setFormState] = useState({});
   const [editingItemId, setEditingItemId] = useState("");
-  const [openDayMenuId, setOpenDayMenuId] = useState(null);
+  const [dayMenuState, setDayMenuState] = useState({ dayId: null, x: 0, y: 0, openUp: false });
   const [dayEditState, setDayEditState] = useState({ open: false, dayId: null, title: "" });
   const [confirmState, setConfirmState] = useState({ open: false, type: "", targetId: null, message: "" });
   const [hotelOptions, setHotelOptions] = useState([]);
@@ -700,10 +701,11 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
       }
 
       if (
-        openDayMenuId &&
-        !event.target.closest("[data-day-menu='true']")
+        dayMenuState.dayId &&
+        !event.target.closest("[data-day-menu='true']") &&
+        !event.target.closest("[data-day-menu-popup='true']")
       ) {
-        setOpenDayMenuId(null);
+        setDayMenuState({ dayId: null, x: 0, y: 0, openUp: false });
       }
     };
 
@@ -711,7 +713,7 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
     };
-  }, [isMenuOpen, openDayMenuId]);
+  }, [isMenuOpen, dayMenuState.dayId]);
 
   const closePanel = () => {
     setActivePanel("");
@@ -779,7 +781,7 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
     setDays(remainingDays);
     setTimelineItems((prev) => prev.filter((item) => item.dayId !== dayId));
     if (selectedDayId === dayId) setSelectedDayId(remainingDays[0].id);
-    setOpenDayMenuId(null);
+    setDayMenuState({ dayId: null, x: 0, y: 0, openUp: false });
     setIsMenuOpen(false);
     closePanel();
   };
@@ -817,7 +819,7 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
     setDays((prev) => [...prev, newDay]);
     setSelectedDayId(nextId);
     setIsMenuOpen(false);
-    setOpenDayMenuId(null);
+    setDayMenuState({ dayId: null, x: 0, y: 0, openUp: false });
     closePanel();
   };
 
@@ -831,7 +833,7 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
     const dayToEdit = days.find((day) => day.id === dayId);
     if (!dayToEdit) return;
     setDayEditState({ open: true, dayId, title: dayToEdit.title });
-    setOpenDayMenuId(null);
+    setDayMenuState({ dayId: null, x: 0, y: 0, openUp: false });
   };
 
   const handleEditDay = () => {
@@ -857,7 +859,7 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
                 onClick={() => {
                   setSelectedDayId(dayTab.id);
                   setIsMenuOpen(false);
-                  setOpenDayMenuId(null);
+                  setDayMenuState({ dayId: null, x: 0, y: 0, openUp: false });
                   closePanel();
                 }}
                 onKeyDown={(e) => {
@@ -865,7 +867,7 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
                     e.preventDefault();
                     setSelectedDayId(dayTab.id);
                     setIsMenuOpen(false);
-                    setOpenDayMenuId(null);
+                    setDayMenuState({ dayId: null, x: 0, y: 0, openUp: false });
                     closePanel();
                   }
                 }}
@@ -887,38 +889,25 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setOpenDayMenuId((prev) => (prev === dayTab.id ? null : dayTab.id));
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const menuHeight = 80;
+                      const openUp = window.innerHeight - rect.bottom < menuHeight;
+
+                      setDayMenuState((prev) =>
+                        prev.dayId === dayTab.id
+                          ? { dayId: null, x: 0, y: 0, openUp: false }
+                          : {
+                            dayId: dayTab.id,
+                            x: rect.right,
+                            y: openUp ? rect.top : rect.bottom,
+                            openUp,
+                          }
+                      );
                     }}
                     className="rounded p-1 text-slate-400 hover:bg-slate-100"
                   >
                     <EllipsisVertical size={14} />
                   </button>
-                  {openDayMenuId === dayTab.id ? (
-                    <div className="absolute right-0 z-50 mt-1 w-32 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditDayModal(dayTab.id);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-violet-50"
-                      >
-                        <Pencil size={14} /> Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openDeleteConfirm("day", dayTab.id, `Delete ${dayTab.day}? All activities in this day will be removed.`);
-                          setOpenDayMenuId(null);
-                        }}
-                        disabled={days.length <= 1}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
-                      >
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </div>
-                  ) : null}
                 </div>
               </div>
             ))}
@@ -1011,6 +1000,41 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
           </aside>
         )}
       </div>
+
+      {dayMenuState.dayId
+        ? createPortal(
+          <div
+            data-day-menu-popup="true"
+            className="fixed z-[80] w-32 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+            style={{
+              left: dayMenuState.x - 128,
+              top: dayMenuState.openUp ? dayMenuState.y - 84 : dayMenuState.y + 4,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => openEditDayModal(dayMenuState.dayId)}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-violet-50"
+            >
+              <Pencil size={14} /> Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const targetDay = days.find((day) => day.id === dayMenuState.dayId);
+                if (!targetDay) return;
+                openDeleteConfirm("day", targetDay.id, `Delete ${targetDay.day}? All activities in this day will be removed.`);
+                setDayMenuState({ dayId: null, x: 0, y: 0, openUp: false });
+              }}
+              disabled={days.length <= 1}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          </div>,
+          document.body
+        )
+        : null}
 
       <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
         <button type="button" onClick={onBack} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
