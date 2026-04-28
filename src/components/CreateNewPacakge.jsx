@@ -1,0 +1,804 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowRight,
+  FileText,
+  PencilLine,
+  Sparkles,
+  Upload,
+  X,
+  MapPin,
+  CalendarDays,
+  Plane,
+  Building2,
+  Pencil,
+  Trash2,
+  RotateCcw,
+  Save,
+} from "lucide-react";
+import Select from "react-select";
+import ItineraryStep from "./ItineraryStep";
+import ReviewStep from "./ReviewStep";
+
+const creationOptions = [
+  {
+    title: "Manual Creation",
+    description: "Create itinerary manually step by step",
+    icon: PencilLine,
+    iconBgClass: "bg-violet-600",
+  },
+  {
+    title: "Build with AI",
+    description: "Let AI generate itinerary for you",
+    icon: Sparkles,
+    iconBgClass: "bg-blue-500",
+  },
+  {
+    title: "MD Prompt Generator",
+    description: "Select data and generate MD prompt",
+    icon: FileText,
+    iconBgClass: "bg-emerald-500",
+  },
+];
+
+const modalSteps = ["Basic Info", "Itinerary", "Review"];
+const destinationOptions = [
+  { value: "bangkok", label: "Bangkok" },
+  { value: "phuket", label: "Phuket" },
+  { value: "dubai", label: "Dubai" },
+  { value: "singapore", label: "Singapore" },
+  { value: "bali", label: "Bali" },
+  { value: "kerala", label: "Kerala" },
+];
+
+const locationOptions = [
+  { value: "suvarnabhumi-airport", label: "Suvarnabhumi Airport (BKK)" },
+  { value: "bangkok-city-center", label: "Bangkok City Center" },
+  { value: "phuket-airport", label: "Phuket International Airport" },
+  { value: "patong-beach", label: "Patong Beach" },
+  { value: "dubai-marina", label: "Dubai Marina" },
+  { value: "changi-airport", label: "Changi Airport" },
+];
+
+const nightsOptions = Array.from({ length: 20 }, (_, idx) => ({
+  value: idx + 1,
+  label: `${idx + 1} Night${idx + 1 > 1 ? "s" : ""}`,
+}));
+
+const aiStates = ["Goa", "Kerala", "Rajasthan", "Himachal Pradesh", "Uttarakhand"];
+const aiCitiesByState = {
+  Goa: ["Goa"],
+  Kerala: ["Kochi", "Munnar", "Alleppey"],
+  Rajasthan: ["Jaipur", "Udaipur", "Jodhpur"],
+  "Himachal Pradesh": ["Manali", "Shimla"],
+  Uttarakhand: ["Rishikesh", "Nainital"],
+};
+
+const aiInitialDays = [
+  {
+    id: 1,
+    title: "Arrival in Goa",
+    activities: [
+      {
+        id: "a-1",
+        icon: Plane,
+        title: "Airport pickup & hotel check-in",
+        subtitle: "Dabolim Airport to North Goa Hotel",
+      },
+      {
+        id: "a-2",
+        icon: MapPin,
+        title: "Calangute Beach visit",
+        subtitle: "Relax and enjoy the beach",
+      },
+      {
+        id: "a-3",
+        icon: CalendarDays,
+        title: "Sunset at Baga Beach",
+        subtitle: "Evening by the sea",
+      },
+    ],
+  },
+  {
+    id: 2,
+    title: "North Goa Sightseeing",
+    activities: [
+      {
+        id: "b-1",
+        icon: Building2,
+        title: "Fort Aguada",
+        subtitle: "Historic fort with sea views",
+      },
+      {
+        id: "b-2",
+        icon: MapPin,
+        title: "Anjuna Beach & Flea Market",
+        subtitle: "Explore beach and local market",
+      },
+      {
+        id: "b-3",
+        icon: CalendarDays,
+        title: "Cruise on Mandovi River",
+        subtitle: "Dinner cruise with music",
+      },
+    ],
+  },
+  {
+    id: 3,
+    title: "South Goa & Departure",
+    activities: [
+      {
+        id: "c-1",
+        icon: Building2,
+        title: "Basilica of Bom Jesus",
+        subtitle: "UNESCO World Heritage Site",
+      },
+      {
+        id: "c-2",
+        icon: MapPin,
+        title: "Colva Beach",
+        subtitle: "Relax and unwind",
+      },
+      {
+        id: "c-3",
+        icon: Plane,
+        title: "Airport Drop",
+        subtitle: "Transfer to Dabolim Airport",
+      },
+    ],
+  },
+];
+
+const customSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 46,
+    borderRadius: 8,
+    borderColor: state.isFocused ? "#a78bfa" : "#e2e8f0",
+    boxShadow: "none",
+    "&:hover": {
+      borderColor: state.isFocused ? "#a78bfa" : "#cbd5e1",
+    },
+  }),
+  valueContainer: (base) => ({ ...base, padding: "0 12px" }),
+  placeholder: (base) => ({ ...base, color: "#94a3b8", fontSize: 14 }),
+  singleValue: (base) => ({ ...base, color: "#1e293b", fontSize: 14 }),
+  menu: (base) => ({ ...base, zIndex: 60 }),
+};
+
+const CreateNewPacakge = () => {
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [isEditActivityModalOpen, setIsEditActivityModalOpen] = useState(false);
+  const [coverImage, setCoverImage] = useState(null);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [destination, setDestination] = useState(null);
+  const [startLocation, setStartLocation] = useState(null);
+  const [endLocation, setEndLocation] = useState(null);
+  const [nights, setNights] = useState(null);
+  const [days, setDays] = useState(null);
+
+  const resetField = () => {
+    console.log('Clicked');
+    
+    setDestination(null);
+    setStartLocation(null);
+    setEndLocation(null);
+    setNights(null);
+    setDays(null);
+    setCoverImage(null);
+  }
+
+  const [aiForm, setAiForm] = useState({
+    packageName: "Goa Beach Escape",
+    state: "Goa",
+    city: "Goa",
+    nights: 2,
+  });
+  const [aiDays, setAiDays] = useState(aiInitialDays);
+  const [editingActivity, setEditingActivity] = useState({
+    dayId: null,
+    activityId: null,
+    title: "",
+    subtitle: "",
+  });
+  const coverImagePreview = useMemo(
+    () => (coverImage ? URL.createObjectURL(coverImage) : ""),
+    [coverImage]
+  );
+
+  const aiCityOptions = useMemo(() => aiCitiesByState[aiForm.state] || [], [aiForm.state]);
+
+  const handleOptionClick = (title) => {
+    if (title === "Manual Creation") {
+      setIsManualModalOpen(true);
+      setCurrentStep(1);
+      return;
+    }
+
+    if (title === "Build with AI") {
+      setIsAIModalOpen(true);
+    }
+  };
+
+  const closeManualModal = () => {
+    setIsManualModalOpen(false);
+    setCurrentStep(1);
+  };
+
+  const closeAIModal = () => {
+    setIsAIModalOpen(false);
+    setIsEditActivityModalOpen(false);
+  };
+
+  const handleNightsChange = (selectedOption) => {
+    setNights(selectedOption);
+
+    if (!selectedOption) {
+      setDays(null);
+      return;
+    }
+
+    const calculatedDays = selectedOption.value + 1;
+    setDays({
+      value: calculatedDays,
+      label: `${calculatedDays} Day${calculatedDays > 1 ? "s" : ""}`,
+    });
+  };
+
+  const handleCoverImageChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setCoverImage(file);
+  };
+
+  const handleAiFieldChange = (field, value) => {
+    setAiForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleDeleteActivity = (dayId, activityId) => {
+    setAiDays((prev) =>
+      prev.map((day) => {
+        if (day.id !== dayId) return day;
+        return {
+          ...day,
+          activities: day.activities.filter((activity) => activity.id !== activityId),
+        };
+      })
+    );
+  };
+
+  const handleEditActivityOpen = (dayId, activity) => {
+    setEditingActivity({
+      dayId,
+      activityId: activity.id,
+      title: activity.title,
+      subtitle: activity.subtitle,
+    });
+    setIsEditActivityModalOpen(true);
+  };
+
+  const handleEditActivityClose = () => {
+    setIsEditActivityModalOpen(false);
+    setEditingActivity({
+      dayId: null,
+      activityId: null,
+      title: "",
+      subtitle: "",
+    });
+  };
+
+  const handleEditActivityFieldChange = (field, value) => {
+    setEditingActivity((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveEditedActivity = () => {
+    if (!editingActivity.dayId || !editingActivity.activityId) return;
+
+    setAiDays((prev) =>
+      prev.map((day) => {
+        if (day.id !== editingActivity.dayId) return day;
+        return {
+          ...day,
+          activities: day.activities.map((activity) =>
+            activity.id === editingActivity.activityId
+              ? {
+                ...activity,
+                title: editingActivity.title.trim() || activity.title,
+                subtitle: editingActivity.subtitle.trim(),
+              }
+              : activity
+          ),
+        };
+      })
+    );
+
+    handleEditActivityClose();
+  };
+
+  useEffect(
+    () => () => {
+      if (coverImagePreview) {
+        URL.revokeObjectURL(coverImagePreview);
+      }
+    },
+    [coverImagePreview]
+  );
+
+  const aiDaysCount = Math.max(1, Number(aiForm.nights || 1) + 1);
+
+  return (
+    <>
+      <section className="h-full rounded-2xl border border-slate-200 bg-white p-5">
+        <h3 className="text-2xl font-semibold text-slate-900">Create New Package</h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Choose a method to create your travel package
+        </p>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {creationOptions.map((option) => (
+            <button
+              key={option.title}
+              type="button"
+              onClick={() => handleOptionClick(option.title)}
+              className="group relative flex w-full items-end justify-center rounded-xl border border-slate-200 p-6 text-left transition-colors hover:border-slate-300"
+            >
+              <div className="flex flex-col items-center gap-4 text-center">
+                <span
+                  className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-white ${option.iconBgClass}`}
+                >
+                  <option.icon size={20} />
+                </span>
+                <div>
+                  <p className="text-lg font-semibold text-slate-800">{option.title}</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{option.description}</p>
+                </div>
+              </div>
+              <div className="absolute right-2 top-2">
+                <div className="rotate-320 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all duration-200 group-hover:translate-x-1 group-hover:bg-violet-100 group-hover:text-violet-600">
+                  <ArrowRight size={16} />
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {isManualModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
+          <div className="max-h-[95vh] w-full max-w-7xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="border-b border-slate-200 px-7 py-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-2xl font-semibold text-slate-900">Manual Create Package</h3>
+                  <p className="mt-1 text-base font-medium text-slate-500">
+                    Create your travel package step by step
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeManualModal}
+                  className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm">
+                {modalSteps.map((step, idx) => (
+                  <div key={step} className="flex items-center gap-3">
+                    <span
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold ${currentStep === idx + 1
+                        ? "border-violet-600 bg-violet-600 text-white"
+                        : currentStep > idx + 1
+                          ? "border-violet-200 bg-violet-50 text-violet-700"
+                          : "border-slate-300 bg-white text-slate-600"
+                        }`}
+                    >
+                      {idx + 1}
+                    </span>
+                    <span
+                      className={
+                        currentStep === idx + 1
+                          ? "font-semibold text-violet-600"
+                          : currentStep > idx + 1
+                            ? "font-medium text-violet-700"
+                            : "text-slate-600"
+                      }
+                    >
+                      {step}
+                    </span>
+                    {idx < modalSteps.length - 1 ? (
+                      <span className="w-10 border-t border-dashed border-slate-300" />
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {currentStep === 1 ? (
+              <>
+                <div className="px-7 py-6">
+                  <h4 className="text-2xl font-semibold text-slate-900">Basic Information</h4>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Provide the basic details for your travel package.
+                  </p>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <input
+                      className="rounded-lg border border-slate-200 px-4 py-3 text-sm md:col-span-2"
+                      placeholder="Enter package name"
+                    />
+                    <label className="relative flex min-h-[120px] cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-violet-300 bg-violet-50/30 p-2 text-center text-sm text-slate-500 md:col-span-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverImageChange}
+                        className="hidden"
+                      />
+                      {coverImagePreview ? (
+                        <>
+                          <img
+                            src={coverImagePreview}
+                            alt="Cover preview"
+                            className="h-full max-h-[160px] w-full rounded-md object-cover"
+                          />
+                          <div className="absolute inset-0 flex items-end justify-center bg-slate-900/0 p-2 opacity-0 transition-opacity hover:bg-slate-900/20 hover:opacity-100">
+                            <span className="rounded bg-white/90 px-2 py-1 text-xs font-medium text-slate-700">
+                              Change Image
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2">
+                          <Upload size={18} className="text-violet-600" />
+                          <span className="font-medium text-slate-700">Upload Cover Image</span>
+                          <span className="text-xs text-slate-500">PNG, JPG up to 5MB</span>
+                        </div>
+                      )}
+                    </label>
+                    <Select
+                      options={destinationOptions}
+                      value={destination}
+                      onChange={setDestination}
+                      isClearable
+                      isSearchable
+                      placeholder="Search destinations..."
+                      styles={customSelectStyles}
+                    />
+                    <Select
+                      options={locationOptions}
+                      value={startLocation}
+                      onChange={setStartLocation}
+                      isClearable
+                      isSearchable
+                      placeholder="Select start location"
+                      styles={customSelectStyles}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Select
+                        options={nightsOptions}
+                        value={nights}
+                        onChange={handleNightsChange}
+                        isClearable
+                        isSearchable
+                        placeholder="Select nights"
+                        styles={customSelectStyles}
+                      />
+                      <Select
+                        options={days ? [days] : []}
+                        value={days}
+                        onChange={() => { }}
+                        isDisabled
+                        placeholder="Days (Auto)"
+                        styles={customSelectStyles}
+                      />
+                    </div>
+                    <Select
+                      options={locationOptions}
+                      value={endLocation}
+                      onChange={setEndLocation}
+                      isClearable
+                      isSearchable
+                      placeholder="Select end location"
+                      styles={customSelectStyles}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-7 py-4">
+                  <button
+                    type="button"
+                    onClick={closeManualModal}
+                    className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(2)}
+                    className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
+                  >
+                    Next Step
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {currentStep === 2 ? (
+              <ItineraryStep onBack={() => setCurrentStep(1)} onNext={() => setCurrentStep(3)} />
+            ) : null}
+
+            {currentStep === 3 ? (
+              <ReviewStep onBack={() => setCurrentStep(2)} onClose={closeManualModal} />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {isAIModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[1.5px]">
+          <div className="max-h-[95vh] w-full max-w-[1240px] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <h3 className="flex items-center gap-2 text-[34px] font-semibold leading-tight text-slate-900">
+                  Build with AI
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Let AI create a custom itinerary for your travel package
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAIModal}
+                className="rounded-full border border-slate-200 p-2 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid gap-5 p-5 lg:grid-cols-[1.02fr_1.58fr]">
+              <div className="rounded-xl border border-slate-200 p-5">
+                <h4 className="text-2xl font-semibold text-slate-900">Package Details</h4>
+                <p className="mt-1 text-sm text-slate-500">
+                  Fill in the basic details to let AI generate your itinerary
+                </p>
+
+                <div className="mt-5 space-y-5">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-semibold text-slate-700">Package Name</label>
+                    <input
+                      value={aiForm.packageName}
+                      onChange={(e) => handleAiFieldChange("packageName", e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
+                    />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-sm font-semibold text-slate-700">State</label>
+                      <select
+                        value={aiForm.state}
+                        onChange={(e) => {
+                          const nextState = e.target.value;
+                          const fallbackCity = (aiCitiesByState[nextState] || [""])[0];
+                          setAiForm((prev) => ({ ...prev, state: nextState, city: fallbackCity }));
+                        }}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
+                      >
+                        {aiStates.map((state) => (
+                          <option key={state} value={state}>
+                            {state}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-semibold text-slate-700">City</label>
+                      <select
+                        value={aiForm.city}
+                        onChange={(e) => handleAiFieldChange("city", e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
+                      >
+                        {aiCityOptions.map((city) => (
+                          <option key={city} value={city}>
+                            {city}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-sm font-semibold text-slate-700">Days & Nights</label>
+                    <div className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
+                      <select
+                        value={aiForm.nights}
+                        onChange={(e) => handleAiFieldChange("nights", Number(e.target.value))}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
+                      >
+                        {Array.from({ length: 14 }, (_, idx) => idx + 1).map((nightCount) => (
+                          <option key={nightCount} value={nightCount}>
+                            {nightCount} Night{nightCount > 1 ? "s" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <ArrowRight className="mx-auto text-slate-400" size={16} />
+                      <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700">
+                        {aiDaysCount} Day{aiDaysCount > 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
+                    <p className="font-semibold">
+                      {aiForm.nights} Night{aiForm.nights > 1 ? "s" : ""} selected = {aiDaysCount} Day
+                      {aiDaysCount > 1 ? "s" : ""} itinerary
+                    </p>
+                    <p className="mt-0.5 text-xs text-violet-600">
+                      You can customize this itinerary after generation.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={resetField}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                  >
+                    <RotateCcw size={14} />
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
+                  >
+                    Generate itinerary
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-2xl font-semibold text-slate-900">AI Generated Itinerary</h4>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Review, edit or remove days and activities
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+                    {aiDaysCount} Days / {aiForm.nights} Nights
+                  </div>
+                </div>
+
+                <div className="space-y-4 max-h-[300px] overflow-y-auto">
+                  {aiDays.map((day) => (
+                    <div key={day.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                      <div className="flex items-center gap-3 pb-3">
+                        <span className="inline-flex min-w-[68px] items-center justify-center rounded-full bg-violet-600 px-2 py-1 text-[11px] font-semibold uppercase text-white">
+                          Day {day.id}
+                        </span>
+                        <h5 className="text-base font-semibold text-slate-900">{day.title}</h5>
+                      </div>
+
+                      <div className="space-y-2">
+                        {day.activities.map((activity) => (
+                          <div
+                            key={activity.id}
+                            className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2"
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <activity.icon size={15} className="mt-0.5 text-violet-500" />
+                              <div>
+                                <p className="text-sm font-medium text-slate-800">{activity.title}</p>
+                                <p className="text-xs text-slate-500">{activity.subtitle}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleEditActivityOpen(day.id, activity)}
+                                className="rounded-md border border-slate-200 p-1.5 text-slate-500 transition hover:bg-slate-50"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteActivity(day.id, activity.id)}
+                                className="rounded-md border border-rose-100 p-1.5 text-rose-500 transition hover:bg-rose-50"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 text-xs text-slate-500 text-center">
+                  AI suggestions are based on master data for {aiForm.city}, {aiForm.state}. You can
+                  review and customize before publishing.
+                </p>
+                <div className="w-full flex justify-center text-center">
+
+                  <button
+                    type="button"
+                    className="mt-4 flex w-fit items-center justify-center gap-1.5 rounded-lg bg-green-500  px-3 py-2 text-sm font-medium text-white transition hover:bg-green-600"
+                  >
+                    Save
+                    <Save size={14} />
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isEditActivityModalOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/45 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h4 className="text-xl font-semibold text-slate-900">Edit Activity</h4>
+                <p className="mt-1 text-sm text-slate-500">
+                  Update the selected itinerary activity details.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleEditActivityClose}
+                className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">Activity Title</label>
+                <input
+                  type="text"
+                  value={editingActivity.title}
+                  onChange={(e) => handleEditActivityFieldChange("title", e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">Activity Subtitle</label>
+                <textarea
+                  rows={3}
+                  value={editingActivity.subtitle}
+                  onChange={(e) => handleEditActivityFieldChange("subtitle", e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={handleEditActivityClose}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditedActivity}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+};
+
+export default CreateNewPacakge;
