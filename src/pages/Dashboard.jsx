@@ -8,7 +8,7 @@ import {
 import Sidebar from "../components/Sidebar";
 import BookingsOverview from "../components/BookingsOverview";
 import DashboardStatsCard from "../components/DashboardStatsCard";
-import CreateNewPacakge from "../components/CreateNewPacakge";
+import CreateNewPackage from "../components/CreateNewPackage";
 
 const statsCards = [
     {
@@ -81,7 +81,7 @@ const Dashboard = () => {
                     </section>
                     <div className="mt-4 grid gap-4 2xl:grid-cols-6">
                         <div className="col-span-4 h-full">
-                            <CreateNewPacakge />
+                            <CreateNewPackage/>
                         </div>
                         <div className="col-span-2 h-full">
                             <BookingsOverview />

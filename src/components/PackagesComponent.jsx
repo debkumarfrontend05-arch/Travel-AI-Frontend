@@ -25,11 +25,10 @@ const packageRows = [
     destination: "Thailand",
     durationDays: 6,
     durationText: "6D / 5N",
-    pax: "2-10 Pax",
+    pax: "2-10 Passengers",
     rating: 4.8,
     reviews: 120,
     price: 1250,
-    status: "Published",
     source: "AI Generated",
     type: "Cultural",
     updated: "Updated 12 May, 2025",
@@ -48,11 +47,10 @@ const packageRows = [
     destination: "Bali",
     durationDays: 6,
     durationText: "6D / 5N",
-    pax: "2-8 Pax",
+    pax: "2-8 Passengers",
     rating: 4.7,
     reviews: 98,
     price: 980,
-    status: "Published",
     source: "Manual",
     type: "Beach",
     updated: "Updated 09 May, 2025",
@@ -70,11 +68,10 @@ const packageRows = [
     destination: "UAE",
     durationDays: 4,
     durationText: "4D / 3N",
-    pax: "2-6 Pax",
+    pax: "2-6 Passengers",
     rating: 4.6,
     reviews: 75,
     price: 1450,
-    status: "Draft",
     source: "MD Prompt",
     type: "City",
     updated: "Updated 10 May, 2025",
@@ -92,11 +89,10 @@ const packageRows = [
     destination: "Maldives",
     durationDays: 5,
     durationText: "5D / 4N",
-    pax: "2-4 Pax",
+    pax: "2-4 Passengers",
     rating: 4.9,
     reviews: 140,
     price: 2150,
-    status: "Published",
     source: "Manual",
     type: "Beach",
     updated: "Updated 08 May, 2025",
@@ -116,11 +112,10 @@ const packageRows = [
     destination: "Singapore",
     durationDays: 3,
     durationText: "3D / 2N",
-    pax: "1-6 Pax",
+    pax: "1-6 Passengers",
     rating: 4.5,
     reviews: 60,
     price: 750,
-    status: "Published",
     source: "Manual",
     type: "City",
     updated: "Updated 08 May, 2025",
@@ -139,11 +134,10 @@ const packageRows = [
     destination: "Kerala",
     durationDays: 5,
     durationText: "5D / 4N",
-    pax: "2-8 Pax",
+    pax: "2-8 Passengers",
     rating: 4.6,
     reviews: 85,
     price: 620,
-    status: "Published",
     source: "Manual",
     type: "Nature",
     updated: "Updated 11 May, 2025",
@@ -161,11 +155,10 @@ const packageRows = [
     destination: "Switzerland",
     durationDays: 7,
     durationText: "7D / 6N",
-    pax: "2-8 Pax",
+    pax: "2-8 Passengers",
     rating: 4.7,
     reviews: 40,
     price: 1850,
-    status: "Draft",
     source: "AI Generated",
     type: "Nature",
     updated: "Updated 07 May, 2025",
@@ -183,11 +176,10 @@ const packageRows = [
     destination: "Japan",
     durationDays: 8,
     durationText: "8D / 7N",
-    pax: "2-10 Pax",
+    pax: "2-10 Passengers",
     rating: 4.8,
     reviews: 110,
     price: 1650,
-    status: "Published",
     source: "MD Prompt",
     type: "Cultural",
     updated: "Updated 06 May, 2025",
@@ -401,15 +393,9 @@ const PackagesComponent = () => {
             <article key={pkg.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
               <div className="relative h-52">
                 <img src={pkg.image} alt={pkg.name} className="h-full w-full object-cover" />
-                <div className="absolute left-3 top-3 inline-flex rounded-lg bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white">
-                  {pkg.status}
-                </div>
                 <div className="absolute right-3 top-3 inline-flex rounded-lg bg-white/95 px-2.5 py-1 text-xs font-semibold text-violet-600">
                   * {pkg.source}
                 </div>
-                <button className="absolute bottom-3 right-3 rounded-full bg-white/95 p-2 text-slate-600 hover:text-rose-500">
-                  <Heart size={18} />
-                </button>
               </div>
 
               <div className="p-4">
@@ -426,14 +412,10 @@ const PackagesComponent = () => {
                   {pkg.locations.join(" | ")}
                 </p>
 
-                <div className="mt-4 flex items-center gap-4 border-t border-slate-100 pt-3 text-sm text-slate-600">
+                <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-100 pt-3 text-sm text-slate-600">
                   <span className="inline-flex items-center gap-1">
                     <CalendarDays size={14} />
                     {pkg.durationText}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Users size={14} />
-                    {pkg.pax}
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <Star size={14} className="text-amber-500" />
@@ -441,27 +423,6 @@ const PackagesComponent = () => {
                   </span>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <div className="flex -space-x-2">
-                    {pkg.members.slice(0, 3).map((member) => (
-                      <img
-                        key={member}
-                        src={member}
-                        alt="member"
-                        className="h-8 w-8 rounded-full border-2 border-white object-cover"
-                      />
-                    ))}
-                    {pkg.members.length > 3 && (
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-xs font-semibold text-slate-600">
-                        +{pkg.members.length - 3}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500">{pkg.updated}</p>
-                  <button className="rounded-lg p-1 text-slate-500 hover:bg-slate-100">
-                    <MoreVertical size={16} />
-                  </button>
-                </div>
               </div>
             </article>
           ))}

@@ -165,7 +165,7 @@ const customSelectStyles = {
   menu: (base) => ({ ...base, zIndex: 60 }),
 };
 
-const CreateNewPacakge = () => {
+const CreateNewPackage = () => {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [isEditActivityModalOpen, setIsEditActivityModalOpen] = useState(false);
@@ -801,4 +801,4 @@ const CreateNewPacakge = () => {
   );
 };
 
-export default CreateNewPacakge;
+export default CreateNewPackage;
