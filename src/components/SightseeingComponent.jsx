@@ -257,6 +257,7 @@ const SightseeingComponent = () => {
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Activity Name</th>
                 <th className="px-4 py-3 text-left font-semibold">City</th>
+                <th className="px-4 py-3 text-left font-semibold">State</th>
                 <th className="px-4 py-3 text-left font-semibold">Type</th>
                 <th className="px-4 py-3 text-left font-semibold">Duration</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
@@ -274,6 +275,7 @@ const SightseeingComponent = () => {
                     <span className="font-medium text-slate-700">{activity.name}</span>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{activity.city}</td>
+                  <td className="px-4 py-3 text-slate-600">{activity.state}</td>
                   <td className="px-4 py-3 text-slate-600">{activity.type}</td>
                   <td className="px-4 py-3 text-slate-600">{activity.duration}</td>
                   <td className="px-4 py-3">

@@ -264,12 +264,12 @@ const PackagesComponent = () => {
     <section>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-semibold text-slate-900">Packages</h2>
+          <h2 className="text-2xl font-semibold text-slate-900">Packages</h2>
           <p className="mt-1 text-lg text-slate-500">Manage and organize your travel packages</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="relative w-full min-w-[280px] lg:min-w-[360px]">
+        <div className="flex flex-wrap  items-center gap-3">
+          <label className="relative w-full min-w-[150px] lg:min-w-[260px]">
             <Search
               size={16}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -284,14 +284,6 @@ const PackagesComponent = () => {
               Ctrl+K
             </span>
           </label>
-
-          <button className="relative rounded-2xl border border-slate-200 bg-white p-3 text-slate-600 hover:bg-slate-50">
-            <Bell size={18} />
-            <span className="absolute -right-1 -top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs text-white">
-              3
-            </span>
-          </button>
-
           <button className="inline-flex h-12 items-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700">
             <Sparkles size={16} />
             Create Package

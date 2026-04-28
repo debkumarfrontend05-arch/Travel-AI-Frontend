@@ -41,23 +41,7 @@ const creationOptions = [
 ];
 
 const modalSteps = ["Basic Info", "Itinerary", "Review"];
-const destinationOptions = [
-  { value: "bangkok", label: "Bangkok" },
-  { value: "phuket", label: "Phuket" },
-  { value: "dubai", label: "Dubai" },
-  { value: "singapore", label: "Singapore" },
-  { value: "bali", label: "Bali" },
-  { value: "kerala", label: "Kerala" },
-];
-
-const locationOptions = [
-  { value: "suvarnabhumi-airport", label: "Suvarnabhumi Airport (BKK)" },
-  { value: "bangkok-city-center", label: "Bangkok City Center" },
-  { value: "phuket-airport", label: "Phuket International Airport" },
-  { value: "patong-beach", label: "Patong Beach" },
-  { value: "dubai-marina", label: "Dubai Marina" },
-  { value: "changi-airport", label: "Changi Airport" },
-];
+const API_URL = "http://localhost:3000/api";
 
 const nightsOptions = Array.from({ length: 20 }, (_, idx) => ({
   value: idx + 1,
@@ -174,6 +158,7 @@ const CreateNewPackage = () => {
   const [destination, setDestination] = useState(null);
   const [startLocation, setStartLocation] = useState(null);
   const [endLocation, setEndLocation] = useState(null);
+  const [locations, setLocations] = useState([]);
   const [nights, setNights] = useState(null);
   const [days, setDays] = useState(null);
 
@@ -207,6 +192,25 @@ const CreateNewPackage = () => {
   );
 
   const aiCityOptions = useMemo(() => aiCitiesByState[aiForm.state] || [], [aiForm.state]);
+  const destinationOptions = useMemo(
+    () =>
+      [...new Set(locations.map((location) => location.state).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b))
+        .map((state) => ({ value: state, label: state })),
+    [locations]
+  );
+  const cityOptions = useMemo(() => {
+    if (!destination?.value) return [];
+
+    return [...new Set(
+      locations
+        .filter((location) => location.state === destination.value)
+        .map((location) => location.city)
+        .filter(Boolean)
+    )]
+      .sort((a, b) => a.localeCompare(b))
+      .map((city) => ({ value: city, label: city }));
+  }, [locations, destination]);
 
   const handleOptionClick = (title) => {
     if (title === "Manual Creation") {
@@ -324,6 +328,38 @@ const CreateNewPackage = () => {
     },
     [coverImagePreview]
   );
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const response = await fetch(`${API_URL}/master-data/locations`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch locations");
+        }
+        const data = await response.json();
+        setLocations(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Failed to fetch locations", error);
+        setLocations([]);
+      }
+    };
+
+    fetchLocations();
+  }, []);
+
+  useEffect(() => {
+    if (!destination?.value) {
+      setStartLocation(null);
+      setEndLocation(null);
+      return;
+    }
+
+    const isStartValid = cityOptions.some((option) => option.value === startLocation?.value);
+    const isEndValid = cityOptions.some((option) => option.value === endLocation?.value);
+
+    if (!isStartValid) setStartLocation(null);
+    if (!isEndValid) setEndLocation(null);
+  }, [destination, cityOptions, startLocation, endLocation]);
 
   const aiDaysCount = Math.max(1, Number(aiForm.nights || 1) + 1);
 
@@ -460,19 +496,22 @@ const CreateNewPackage = () => {
                     <Select
                       options={destinationOptions}
                       value={destination}
-                      onChange={setDestination}
+                      onChange={(selectedState) => {
+                        setDestination(selectedState);
+                      }}
                       isClearable
                       isSearchable
-                      placeholder="Search destinations..."
+                      placeholder="Search State..."
                       styles={customSelectStyles}
                     />
                     <Select
-                      options={locationOptions}
+                      options={cityOptions}
                       value={startLocation}
                       onChange={setStartLocation}
                       isClearable
                       isSearchable
-                      placeholder="Select start location"
+                      placeholder="Select start City"
+                      isDisabled={!destination}
                       styles={customSelectStyles}
                     />
                     <div className="grid grid-cols-2 gap-3">
@@ -495,12 +534,13 @@ const CreateNewPackage = () => {
                       />
                     </div>
                     <Select
-                      options={locationOptions}
+                      options={cityOptions}
                       value={endLocation}
                       onChange={setEndLocation}
                       isClearable
                       isSearchable
-                      placeholder="Select end location"
+                      placeholder="Select end City"
+                      isDisabled={!destination}
                       styles={customSelectStyles}
                     />
                   </div>

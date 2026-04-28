@@ -12,7 +12,6 @@ const Sidebar = () => {
     {
       title: "Packages",
       items: [
-        { label: "Itineraries", path: "/itineraries", icon: ClipboardList },
         { label: "Packages", path: "/packages", icon: Briefcase }
       ],
     },

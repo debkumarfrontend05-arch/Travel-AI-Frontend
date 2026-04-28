@@ -271,11 +271,11 @@ const HotelsComponent = () => {
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Hotel Name</th>
                 <th className="px-4 py-3 text-left font-semibold">City</th>
+                <th className="px-4 py-3 text-left font-semibold">State</th>
                 <th className="px-4 py-3 text-left font-semibold">Category</th>
                 <th className="px-4 py-3 text-left font-semibold">Rating</th>
                 <th className="px-4 py-3 text-left font-semibold">Rooms</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
-                <th className="px-4 py-3 text-left font-semibold">Updated</th>
                 <th className="px-4 py-3 text-left font-semibold">Action</th>
               </tr>
             </thead>
@@ -290,6 +290,7 @@ const HotelsComponent = () => {
                     <span className="font-medium text-slate-700">{hotel.name}</span>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{hotel.city}</td>
+                   <td className="px-4 py-3 text-slate-500">{hotel.state}</td>
                   <td className="px-4 py-3 text-slate-600">{hotel.category}</td>
                   <td className="px-4 py-3 text-slate-600">{(hotel.rating || 0).toFixed(1)}</td>
                   <td className="px-4 py-3 text-slate-600">{hotel.rooms}</td>
@@ -303,7 +304,7 @@ const HotelsComponent = () => {
                       {hotel.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-500">{hotel.updated}</td>
+                 
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button
