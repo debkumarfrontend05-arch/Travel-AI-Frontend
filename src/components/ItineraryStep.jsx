@@ -635,7 +635,7 @@ const RightDrawer = ({
   );
 };
 
-const ItineraryStep = ({ onBack, onNext, initialData }) => {
+const ItineraryStep = ({ onBack, onNext, initialData, selectedState = "" }) => {
   const [days, setDays] = useState(initialData?.days?.length ? initialData.days : []);
   const [selectedDayId, setSelectedDayId] = useState(
     initialData?.days?.length ? initialData.days[0].id : null
@@ -664,6 +664,13 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
         .sort((a, b) => toMinutes(a.time) - toMinutes(b.time)),
     [timelineItems, selectedDayId],
   );
+  const filteredHotelOptions = useMemo(() => {
+    if (!selectedState) return hotelOptions;
+    const normalizedSelectedState = selectedState.trim().toLowerCase();
+    return hotelOptions.filter(
+      (hotel) => (hotel?.state || "").trim().toLowerCase() === normalizedSelectedState
+    );
+  }, [hotelOptions, selectedState]);
 
   useEffect(() => {
     const loadMasterData = async () => {
@@ -725,8 +732,8 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
     if (!selectedDay) return;
     setActivePanel(panelType);
     const initialState = { ...(defaultForms[panelType] || {}) };
-    if (panelType === "Hotel" && hotelOptions.length > 0) {
-      const firstHotel = hotelOptions[0];
+    if (panelType === "Hotel" && filteredHotelOptions.length > 0) {
+      const firstHotel = filteredHotelOptions[0];
       initialState.hotelId = firstHotel._id;
       initialState.hotelName = firstHotel.name || "";
       initialState.roomType = `${firstHotel.category || "Standard"} Room`;
@@ -949,7 +956,7 @@ const ItineraryStep = ({ onBack, onNext, initialData }) => {
         </section>
 
         {activePanel ? (
-          <RightDrawer panelType={activePanel} formState={formState} setFormState={setFormState} onClose={closePanel} onSubmit={handleAddItem} selectedDay={selectedDay} isEditing={Boolean(editingItemId)} hotelOptions={hotelOptions} transferOptions={transferOptions} mealOptions={mealOptions} sightseeingOptions={sightseeingOptions} />
+          <RightDrawer panelType={activePanel} formState={formState} setFormState={setFormState} onClose={closePanel} onSubmit={handleAddItem} selectedDay={selectedDay} isEditing={Boolean(editingItemId)} hotelOptions={filteredHotelOptions} transferOptions={transferOptions} mealOptions={mealOptions} sightseeingOptions={sightseeingOptions} />
         ) : (
           <aside className="rounded-xl border border-slate-200 bg-white p-4">
             <h4 className="text-2xl font-semibold text-slate-900">Day Summary</h4>

@@ -707,6 +707,7 @@ const CreateNewPackage = () => {
                   setCurrentStep(3);
                 }}
                 initialData={manualItineraryData}
+                selectedState={destination?.value || ""}
               />
             ) : null}
 
