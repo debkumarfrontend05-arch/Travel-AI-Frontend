@@ -15,6 +15,8 @@ import {
   Sparkles,
   Star,
   Users,
+  X,
+  Trash2,
 } from "lucide-react";
 
 const packageRows = [
@@ -194,6 +196,7 @@ const packageRows = [
 ];
 
 const PackagesComponent = () => {
+  const [packages, setPackages] = useState(packageRows);
   const [search, setSearch] = useState("");
   const [destinationFilter, setDestinationFilter] = useState("All Destinations");
   const [durationFilter, setDurationFilter] = useState("All Durations");
@@ -202,16 +205,17 @@ const PackagesComponent = () => {
   const [sortBy, setSortBy] = useState("Latest");
   const [viewMode, setViewMode] = useState("grid");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedPackage, setSelectedPackage] = useState(null);
 
   const pageSize = viewMode === "grid" ? 8 : 5;
 
   const destinationOptions = useMemo(() => {
-    return ["All Destinations", ...new Set(packageRows.map((pkg) => pkg.destination))];
-  }, []);
+    return ["All Destinations", ...new Set(packages.map((pkg) => pkg.destination))];
+  }, [packages]);
 
   const typeOptions = useMemo(() => {
-    return ["All Types", ...new Set(packageRows.map((pkg) => pkg.type))];
-  }, []);
+    return ["All Types", ...new Set(packages.map((pkg) => pkg.type))];
+  }, [packages]);
 
   const filteredRows = useMemo(() => {
     const durationMatches = (days) => {
@@ -221,7 +225,7 @@ const PackagesComponent = () => {
       return days >= 8;
     };
 
-    const rows = packageRows.filter((pkg) => {
+    const rows = packages.filter((pkg) => {
       const matchesSearch =
         `${pkg.name} ${pkg.destination} ${pkg.locations.join(" ")} ${pkg.type}`
           .toLowerCase()
@@ -247,7 +251,7 @@ const PackagesComponent = () => {
       if (sortBy === "Rating") return b.rating - a.rating;
       return b.id - a.id;
     });
-  }, [search, destinationFilter, durationFilter, typeFilter, statusFilter, sortBy]);
+  }, [packages, search, destinationFilter, durationFilter, typeFilter, statusFilter, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
 
@@ -259,6 +263,57 @@ const PackagesComponent = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, destinationFilter, durationFilter, typeFilter, statusFilter, sortBy, viewMode]);
+
+  const getItinerary = (pkg) => {
+    const dayCount = Math.max(2, pkg.durationDays);
+    const stops = pkg.locations.length > 0 ? pkg.locations : [pkg.destination];
+
+    return Array.from({ length: dayCount }).map((_, index) => {
+      const stop = stops[index % stops.length];
+      const isFirstDay = index === 0;
+      const isLastDay = index === dayCount - 1;
+
+      if (isFirstDay) {
+        return {
+          day: index + 1,
+          title: `Arrival in ${stop}`,
+          activities: [
+            `Airport pickup and transfer to hotel in ${stop}`,
+            `Hotel check-in and welcome briefing`,
+            `Evening leisure around local market`,
+          ],
+        };
+      }
+
+      if (isLastDay) {
+        return {
+          day: index + 1,
+          title: `Departure from ${stop}`,
+          activities: [
+            "Breakfast at hotel",
+            `Final sightseeing and shopping in ${stop}`,
+            "Drop at airport for return journey",
+          ],
+        };
+      }
+
+      return {
+        day: index + 1,
+        title: `${stop} Exploration`,
+        activities: [
+          `Guided city tour of ${stop}`,
+          "Lunch at a popular local restaurant",
+          "Sunset point visit and cultural show",
+        ],
+      };
+    });
+  };
+
+  const handleDeletePackage = (event, packageId) => {
+    event.stopPropagation();
+    setPackages((prev) => prev.filter((pkg) => pkg.id !== packageId));
+    setSelectedPackage((prev) => (prev?.id === packageId ? null : prev));
+  };
 
   return (
     <section>
@@ -380,37 +435,49 @@ const PackagesComponent = () => {
       </div>
 
       {viewMode === "grid" ? (
-        <div className="mt-6 grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
+        <div className="mt-6 grid gap-3 lg:grid-cols-2 2xl:grid-cols-4">
           {paginatedRows.map((pkg) => (
-            <article key={pkg.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              <div className="relative h-52">
+            <article
+              key={pkg.id}
+              onClick={() => setSelectedPackage(pkg)}
+              className="cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <div className="relative h-40">
                 <img src={pkg.image} alt={pkg.name} className="h-full w-full object-cover" />
                 <div className="absolute right-3 top-3 inline-flex rounded-lg bg-white/95 px-2.5 py-1 text-xs font-semibold text-violet-600">
                   * {pkg.source}
                 </div>
+                <button
+                  type="button"
+                  onClick={(event) => handleDeletePackage(event, pkg.id)}
+                  className="absolute left-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/95 text-rose-500 transition hover:bg-rose-50 hover:text-rose-600"
+                  title="Delete package"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
 
-              <div className="p-4">
+              <div className="p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-3xl font-semibold text-slate-900">{pkg.name}</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">{pkg.name}</h3>
                   <p className="text-right text-violet-600">
-                    <span className="text-4xl font-semibold">${pkg.price.toLocaleString()}</span>
+                    <span className="text-2xl font-semibold">${pkg.price.toLocaleString()}</span>
                     <span className="block text-xs text-slate-500">per person</span>
                   </p>
                 </div>
 
-                <p className="mt-2 inline-flex items-center gap-1 text-sm text-slate-500">
+                <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-slate-500">
                   <MapPin size={14} />
                   {pkg.locations.join(" | ")}
                 </p>
 
-                <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-100 pt-3 text-sm text-slate-600">
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-2.5 text-xs text-slate-600">
                   <span className="inline-flex items-center gap-1">
-                    <CalendarDays size={14} />
+                    <CalendarDays size={13} />
                     {pkg.durationText}
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <Star size={14} className="text-amber-500" />
+                    <Star size={13} className="text-amber-500" />
                     {pkg.rating} ({pkg.reviews})
                   </span>
                 </div>
@@ -424,20 +491,30 @@ const PackagesComponent = () => {
           {paginatedRows.map((pkg) => (
             <article
               key={pkg.id}
-              className="grid grid-cols-[220px_1fr] gap-4 rounded-2xl border border-slate-200 bg-white p-3"
+              onClick={() => setSelectedPackage(pkg)}
+              className="grid cursor-pointer grid-cols-[180px_1fr] gap-3 rounded-2xl border border-slate-200 bg-white p-2.5 transition hover:shadow-md"
             >
-              <img src={pkg.image} alt={pkg.name} className="h-36 w-full rounded-xl object-cover" />
+              <img src={pkg.image} alt={pkg.name} className="h-28 w-full rounded-xl object-cover" />
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-2xl font-semibold text-slate-900">{pkg.name}</h3>
-                  <p className="mt-1 text-sm text-slate-500">{pkg.locations.join(" | ")}</p>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <h3 className="text-xl font-semibold text-slate-900">{pkg.name}</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">{pkg.locations.join(" | ")}</p>
+                  <p className="mt-1.5 text-xs text-slate-600">
                     {pkg.durationText} | {pkg.pax} | {pkg.rating} ({pkg.reviews})
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-semibold text-violet-600">${pkg.price.toLocaleString()}</p>
+                  <p className="text-2xl font-semibold text-violet-600">${pkg.price.toLocaleString()}</p>
                   <p className="text-xs text-slate-500">per person</p>
+                  <button
+                    type="button"
+                    onClick={(event) => handleDeletePackage(event, pkg.id)}
+                    className="mt-2 inline-flex items-center gap-1 rounded-md border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50"
+                    title="Delete package"
+                  >
+                    <Trash2 size={12} />
+                    Delete
+                  </button>
                 </div>
               </div>
             </article>
@@ -486,6 +563,97 @@ const PackagesComponent = () => {
           </button>
         </div>
       </div>
+
+      {selectedPackage ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900">{selectedPackage.name}</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {selectedPackage.destination} • {selectedPackage.durationText} • {selectedPackage.pax}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPackage(null)}
+                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4">
+              <img
+                src={selectedPackage.image}
+                alt={selectedPackage.name}
+                className="h-52 w-full rounded-xl object-cover"
+              />
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                  <p className="text-[11px] font-medium text-slate-500">Price</p>
+                  <p className="mt-1 text-base font-semibold text-violet-600">${selectedPackage.price.toLocaleString()}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                  <p className="text-[11px] font-medium text-slate-500">Rating</p>
+                  <p className="mt-1 text-base font-semibold text-slate-800">{selectedPackage.rating} ({selectedPackage.reviews})</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                  <p className="text-[11px] font-medium text-slate-500">Source</p>
+                  <p className="mt-1 text-base font-semibold text-slate-800">{selectedPackage.source}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                  <p className="text-[11px] font-medium text-slate-500">Updated</p>
+                  <p className="mt-1 text-base font-semibold text-slate-800">{selectedPackage.updated.replace("Updated ", "")}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-lg border border-slate-200 p-3">
+                <h4 className="text-sm font-semibold text-slate-900">Destination Details</h4>
+                <p className="mt-1.5 text-sm text-slate-600">
+                  {selectedPackage.locations.join(" | ")}
+                </p>
+              </div>
+
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold text-slate-900">Day-wise Itinerary</h4>
+                <div className="mt-3 space-y-3">
+                  {getItinerary(selectedPackage).map((item, index, arr) => (
+                    <div key={`${selectedPackage.id}-${item.day}`} className="relative pl-10">
+                      {index < arr.length - 1 ? (
+                        <span className="absolute left-[15px] top-7 h-[calc(100%+10px)] w-px bg-slate-200" />
+                      ) : null}
+                      <span className="absolute left-0 top-1 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-violet-200 bg-violet-50 text-[11px] font-bold text-violet-700">
+                        {item.day}
+                      </span>
+
+                      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">
+                            Day {item.day}
+                          </p>
+                        </div>
+                        <h5 className="mt-1 text-sm font-semibold text-slate-900">{item.title}</h5>
+                        <ul className="mt-2 space-y-1.5 text-xs text-slate-600">
+                          {item.activities.map((activity) => (
+                            <li key={`${item.day}-${activity}`} className="flex items-start gap-2">
+                              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-violet-400" />
+                              <span>{activity}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 };

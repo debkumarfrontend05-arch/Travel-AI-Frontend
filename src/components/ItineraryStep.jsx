@@ -19,6 +19,7 @@ import {
   X,
   ListChecks,
 } from "lucide-react";
+import { fetchHotels } from "../api";
 
 const initialDays = [
   { id: 1, day: "Day 1", title: "Arrival in Bangkok", icon: MapPinned },
@@ -84,7 +85,7 @@ const iconByType = {
 const addItemOptions = ["Hotel", "Transfer", "Meal", "Sightseeing", "Information"];
 
 const defaultForms = {
-  Hotel: { hotelName: "", roomType: "", checkInTime: "14:00", notes: "" },
+  Hotel: { hotelId: "", hotelName: "", roomType: "", hotelRating: "", checkInTime: "14:00", notes: "" },
   Transfer: {
     transferType: "Airport Pickup",
     from: "",
@@ -101,9 +102,12 @@ const defaultForms = {
 
 const formFromItem = (item) => {
   if (item.type === "Hotel") {
+    const [roomTypePart = "", ratingPart = ""] = (item.detail2 || "").split(" | ");
     return {
+      hotelId: "",
       hotelName: item.detail1 || "",
-      roomType: item.detail2 || "",
+      roomType: roomTypePart || item.detail2 || "",
+      hotelRating: ratingPart ? ratingPart.replace("★", "").trim() : "",
       checkInTime: item.time || "14:00",
       notes: "",
     };
@@ -161,13 +165,16 @@ const getTypeMeta = (type) => iconByType[type] || iconByType.Information;
 
 const buildItemFromForm = (panelType, formState, selectedDay) => {
   if (panelType === "Hotel") {
+    const hotelDetailTwo = formState.hotelRating
+      ? `${formState.roomType || "Room details pending"} | ${formState.hotelRating}★`
+      : formState.roomType || "Room details pending";
     return {
       id: `item-${Date.now()}`,
       time: formState.checkInTime || "14:00",
       type: "Hotel",
       title: "Hotel Check-in",
       detail1: formState.hotelName || "Hotel",
-      detail2: formState.roomType || "Room details pending",
+      detail2: hotelDetailTwo,
       status: "Manual",
       dayId: selectedDay.id,
     };
@@ -354,6 +361,7 @@ const RightDrawer = ({
   onSubmit,
   selectedDay,
   isEditing,
+  hotelOptions,
 }) => {
   const setValue = (key, value) => setFormState((prev) => ({ ...prev, [key]: value }));
 
@@ -377,10 +385,57 @@ const RightDrawer = ({
         {panelType === "Hotel" ? (
           <>
             <DrawerField label="Hotel Name">
-              <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Search or enter hotel" value={formState.hotelName} onChange={(e) => setValue("hotelName", e.target.value)} />
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.hotelId || ""}
+                onChange={(e) => {
+                  const nextHotelId = e.target.value;
+                  const selectedHotel = hotelOptions.find((hotel) => hotel._id === nextHotelId);
+                  if (!selectedHotel) {
+                    setFormState((prev) => ({
+                      ...prev,
+                      hotelId: "",
+                      hotelName: "",
+                      roomType: "",
+                      hotelRating: "",
+                    }));
+                    return;
+                  }
+                  const autoRoomType = `${selectedHotel.category || "Standard"} Room`;
+                  setFormState((prev) => ({
+                    ...prev,
+                    hotelId: selectedHotel._id,
+                    hotelName: selectedHotel.name || "",
+                    roomType: autoRoomType,
+                    hotelRating: Number.isFinite(selectedHotel.rating)
+                      ? selectedHotel.rating.toFixed(1)
+                      : "",
+                  }));
+                }}
+              >
+                <option value="">Select hotel</option>
+                {hotelOptions.map((hotel) => (
+                  <option key={hotel._id} value={hotel._id}>
+                    {hotel.name}
+                  </option>
+                ))}
+              </select>
             </DrawerField>
             <DrawerField label="Room Type">
-              <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Deluxe Room" value={formState.roomType} onChange={(e) => setValue("roomType", e.target.value)} />
+              <input
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+                placeholder="Auto from selected hotel"
+                value={formState.roomType}
+                readOnly
+              />
+            </DrawerField>
+            <DrawerField label="Rating">
+              <input
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+                placeholder="Auto from selected hotel"
+                value={formState.hotelRating ? `${formState.hotelRating}★` : ""}
+                readOnly
+              />
             </DrawerField>
             <DrawerField label="Check-in Time">
               <input type="time" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={formState.checkInTime} onChange={(e) => setValue("checkInTime", e.target.value)} />
@@ -470,6 +525,7 @@ const ItineraryStep = ({ onBack, onNext }) => {
   const [openDayMenuId, setOpenDayMenuId] = useState(null);
   const [dayEditState, setDayEditState] = useState({ open: false, dayId: null, title: "" });
   const [confirmState, setConfirmState] = useState({ open: false, type: "", targetId: null, message: "" });
+  const [hotelOptions, setHotelOptions] = useState([]);
   const selectedDay = days.find((day) => day.id === selectedDayId) || days[0];
   const addItemMenuRef = useRef(null);
 
@@ -480,6 +536,20 @@ const ItineraryStep = ({ onBack, onNext }) => {
         .sort((a, b) => toMinutes(a.time) - toMinutes(b.time)),
     [timelineItems, selectedDayId],
   );
+
+  useEffect(() => {
+    const loadHotels = async () => {
+      try {
+        const data = await fetchHotels();
+        setHotelOptions(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Error loading hotels for itinerary:", error);
+        setHotelOptions([]);
+      }
+    };
+
+    loadHotels();
+  }, []);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -513,7 +583,17 @@ const ItineraryStep = ({ onBack, onNext }) => {
 
   const openPanel = (panelType) => {
     setActivePanel(panelType);
-    setFormState(defaultForms[panelType] || {});
+    const initialState = { ...(defaultForms[panelType] || {}) };
+    if (panelType === "Hotel" && hotelOptions.length > 0) {
+      const firstHotel = hotelOptions[0];
+      initialState.hotelId = firstHotel._id;
+      initialState.hotelName = firstHotel.name || "";
+      initialState.roomType = `${firstHotel.category || "Standard"} Room`;
+      initialState.hotelRating = Number.isFinite(firstHotel.rating)
+        ? firstHotel.rating.toFixed(1)
+        : "";
+    }
+    setFormState(initialState);
     setEditingItemId("");
     setIsMenuOpen(false);
   };
@@ -699,7 +779,7 @@ const ItineraryStep = ({ onBack, onNext }) => {
         </section>
 
         {activePanel ? (
-          <RightDrawer panelType={activePanel} formState={formState} setFormState={setFormState} onClose={closePanel} onSubmit={handleAddItem} selectedDay={selectedDay} isEditing={Boolean(editingItemId)} />
+          <RightDrawer panelType={activePanel} formState={formState} setFormState={setFormState} onClose={closePanel} onSubmit={handleAddItem} selectedDay={selectedDay} isEditing={Boolean(editingItemId)} hotelOptions={hotelOptions} />
         ) : (
           <aside className="rounded-xl border border-slate-200 bg-white p-4">
             <h4 className="text-2xl font-semibold text-slate-900">Day Summary</h4>
