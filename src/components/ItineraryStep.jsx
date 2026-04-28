@@ -19,7 +19,7 @@ import {
   X,
   ListChecks,
 } from "lucide-react";
-import { fetchHotels } from "../api";
+import { fetchHotels, fetchTransfers, fetchMeals, fetchSightseeing } from "../api";
 
 const initialDays = [
   { id: 1, day: "Day 1", title: "Arrival in Bangkok", icon: MapPinned },
@@ -87,16 +87,19 @@ const addItemOptions = ["Hotel", "Transfer", "Meal", "Sightseeing", "Information
 const defaultForms = {
   Hotel: { hotelId: "", hotelName: "", roomType: "", hotelRating: "", checkInTime: "14:00", notes: "" },
   Transfer: {
+    transferId: "",
+    transferName: "",
     transferType: "Airport Pickup",
     from: "",
     to: "",
     date: "12 May 2025",
     time: "10:30",
     vehicle: "Private Car",
+    duration: "",
     notes: "",
   },
-  Meal: { mealType: "Dinner", restaurant: "", cuisine: "", time: "19:30", notes: "" },
-  Sightseeing: { place: "", timing: "Afternoon", duration: "Half Day Tour", notes: "" },
+  Meal: { mealId: "", mealName: "", mealType: "Dinner", restaurant: "", cuisine: "", time: "19:30", notes: "" },
+  Sightseeing: { sightseeingId: "", sightseeingName: "", place: "", timing: "Afternoon", duration: "Half Day Tour", notes: "" },
   Information: { infoType: "General Note", note: "" },
 };
 
@@ -115,19 +118,25 @@ const formFromItem = (item) => {
 
   if (item.type === "Transfer") {
     const [from = "", to = ""] = (item.detail1 || "").split(" -> ");
+    const [vehiclePart = "", durationPart = ""] = (item.detail2 || "").split(" | ");
     return {
+      transferId: "",
+      transferName: "",
       transferType: "Airport Pickup",
       from,
       to,
       date: "12 May 2025",
       time: item.time || "10:30",
-      vehicle: item.detail2 || "Private Car",
+      vehicle: vehiclePart || item.detail2 || "Private Car",
+      duration: durationPart || "",
       notes: "",
     };
   }
 
   if (item.type === "Meal") {
     return {
+      mealId: "",
+      mealName: item.detail1 || "",
       mealType: "Dinner",
       restaurant: item.detail1 || "",
       cuisine: item.detail2 || "",
@@ -138,6 +147,8 @@ const formFromItem = (item) => {
 
   if (item.type === "Sightseeing") {
     return {
+      sightseeingId: "",
+      sightseeingName: item.detail1 || "",
       place: item.detail1 || "",
       timing: "Afternoon",
       duration: item.detail2 || "",
@@ -181,13 +192,16 @@ const buildItemFromForm = (panelType, formState, selectedDay) => {
   }
 
   if (panelType === "Transfer") {
+    const transferDetailTwo = formState.duration
+      ? `${formState.vehicle || "Vehicle pending"} | ${formState.duration}`
+      : formState.vehicle || "Vehicle pending";
     return {
       id: `item-${Date.now()}`,
       time: formState.time || "10:30",
       type: "Transfer",
       title: "Transfer",
       detail1: `${formState.from || "Pickup"} -> ${formState.to || "Drop"}`,
-      detail2: formState.vehicle || "Vehicle pending",
+      detail2: transferDetailTwo,
       status: "Manual",
       dayId: selectedDay.id,
     };
@@ -361,7 +375,10 @@ const RightDrawer = ({
   onSubmit,
   selectedDay,
   isEditing,
-  hotelOptions,
+  hotelOptions = [],
+  transferOptions = [],
+  mealOptions = [],
+  sightseeingOptions = [],
 }) => {
   const setValue = (key, value) => setFormState((prev) => ({ ...prev, [key]: value }));
 
@@ -445,18 +462,60 @@ const RightDrawer = ({
 
         {panelType === "Transfer" ? (
           <>
-            <DrawerField label="Transfer Type">
-              <select className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={formState.transferType} onChange={(e) => setValue("transferType", e.target.value)}>
-                <option>Airport Pickup</option>
-                <option>Intercity Travel</option>
-                <option>Local Transport</option>
+            <DrawerField label="Transfer Name">
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.transferId || ""}
+                onChange={(e) => {
+                  const nextTransferId = e.target.value;
+                  const selectedTransfer = transferOptions.find((transfer) => transfer._id === nextTransferId);
+                  if (!selectedTransfer) {
+                    setFormState((prev) => ({
+                      ...prev,
+                      transferId: "",
+                      transferName: "",
+                      transferType: "Airport Pickup",
+                      from: "",
+                      to: "",
+                      vehicle: "",
+                      duration: "",
+                    }));
+                    return;
+                  }
+                  setFormState((prev) => ({
+                    ...prev,
+                    transferId: selectedTransfer._id,
+                    transferName: selectedTransfer.name || "",
+                    transferType: selectedTransfer.type || "Airport Pickup",
+                    from: selectedTransfer.from || "",
+                    to: selectedTransfer.to || "",
+                    vehicle: selectedTransfer.vehicle || "",
+                    duration: selectedTransfer.duration || "",
+                  }));
+                }}
+              >
+                <option value="">Select transfer</option>
+                {transferOptions.map((transfer) => (
+                  <option key={transfer._id} value={transfer._id}>
+                    {transfer.name}
+                  </option>
+                ))}
               </select>
             </DrawerField>
+            <DrawerField label="Transfer Type">
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" value={formState.transferType || ""} readOnly />
+            </DrawerField>
             <DrawerField label="From">
-              <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={formState.from} onChange={(e) => setValue("from", e.target.value)} placeholder="From location" />
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" value={formState.from} readOnly placeholder="From location" />
             </DrawerField>
             <DrawerField label="To">
-              <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={formState.to} onChange={(e) => setValue("to", e.target.value)} placeholder="To location" />
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" value={formState.to} readOnly placeholder="To location" />
+            </DrawerField>
+            <DrawerField label="Vehicle">
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" value={formState.vehicle} readOnly placeholder="Vehicle" />
+            </DrawerField>
+            <DrawerField label="Duration">
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" value={formState.duration || ""} readOnly placeholder="Duration" />
             </DrawerField>
             <DrawerField label="Time">
               <input type="time" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={formState.time} onChange={(e) => setValue("time", e.target.value)} />
@@ -466,31 +525,92 @@ const RightDrawer = ({
 
         {panelType === "Meal" ? (
           <>
-            <DrawerField label="Meal Type">
-              <div className="flex gap-2">
-                {["Breakfast", "Lunch", "Dinner"].map((mealType) => (
-                  <button key={mealType} type="button" onClick={() => setValue("mealType", mealType)} className={`rounded-lg border px-3 py-2 text-xs font-medium ${formState.mealType === mealType ? "border-violet-600 bg-violet-600 text-white" : "border-slate-200 text-slate-600"}`}>
-                    {mealType}
-                  </button>
+            <DrawerField label="Meal Name">
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.mealId || ""}
+                onChange={(e) => {
+                  const nextMealId = e.target.value;
+                  const selectedMeal = mealOptions.find((meal) => meal._id === nextMealId);
+                  if (!selectedMeal) {
+                    setFormState((prev) => ({
+                      ...prev,
+                      mealId: "",
+                      mealName: "",
+                      restaurant: "",
+                      mealType: "Dinner",
+                      cuisine: "",
+                    }));
+                    return;
+                  }
+                  setFormState((prev) => ({
+                    ...prev,
+                    mealId: selectedMeal._id,
+                    mealName: selectedMeal.name || "",
+                    restaurant: selectedMeal.name || "",
+                    mealType: selectedMeal.mealTime || "Dinner",
+                    cuisine: selectedMeal.cuisine || "",
+                  }));
+                }}
+              >
+                <option value="">Select meal</option>
+                {mealOptions.map((meal) => (
+                  <option key={meal._id} value={meal._id}>
+                    {meal.name}
+                  </option>
                 ))}
-              </div>
+              </select>
             </DrawerField>
-            <DrawerField label="Restaurant / Meal">
-              <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={formState.restaurant} onChange={(e) => setValue("restaurant", e.target.value)} placeholder="Restaurant name" />
+            <DrawerField label="Meal Type">
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" value={formState.mealType || ""} readOnly />
             </DrawerField>
             <DrawerField label="Cuisine">
-              <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={formState.cuisine} onChange={(e) => setValue("cuisine", e.target.value)} placeholder="Thai Cuisine" />
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" value={formState.cuisine} readOnly placeholder="Thai Cuisine" />
             </DrawerField>
           </>
         ) : null}
 
         {panelType === "Sightseeing" ? (
           <>
+            <DrawerField label="Sightseeing Name">
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.sightseeingId || ""}
+                onChange={(e) => {
+                  const nextSightseeingId = e.target.value;
+                  const selectedSightseeing = sightseeingOptions.find((activity) => activity._id === nextSightseeingId);
+                  if (!selectedSightseeing) {
+                    setFormState((prev) => ({
+                      ...prev,
+                      sightseeingId: "",
+                      sightseeingName: "",
+                      place: "",
+                      duration: "",
+                    }));
+                    return;
+                  }
+                  setFormState((prev) => ({
+                    ...prev,
+                    sightseeingId: selectedSightseeing._id,
+                    sightseeingName: selectedSightseeing.name || "",
+                    place: selectedSightseeing.name || "",
+                    duration: selectedSightseeing.duration || "",
+                  }));
+                }}
+              >
+                <option value="">Select sightseeing</option>
+                {sightseeingOptions.map((activity) => (
+                  <option key={activity._id} value={activity._id}>
+                    {activity.name}
+                  </option>
+                ))}
+              </select>
+            </DrawerField>
             <DrawerField label="Place">
-              <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={formState.place} onChange={(e) => setValue("place", e.target.value)} placeholder="Wat Arun" />
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" value={formState.place} readOnly placeholder="Place" />
             </DrawerField>
             <DrawerField label="Duration">
-              <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={formState.duration} onChange={(e) => setValue("duration", e.target.value)} placeholder="Half Day Tour" />
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" value={formState.duration} readOnly placeholder="Half Day Tour" />
             </DrawerField>
           </>
         ) : null}
@@ -514,10 +634,14 @@ const RightDrawer = ({
   );
 };
 
-const ItineraryStep = ({ onBack, onNext }) => {
-  const [days, setDays] = useState(initialDays);
-  const [selectedDayId, setSelectedDayId] = useState(1);
-  const [timelineItems, setTimelineItems] = useState(seedItems);
+const ItineraryStep = ({ onBack, onNext, initialData }) => {
+  const [days, setDays] = useState(initialData?.days?.length ? initialData.days : []);
+  const [selectedDayId, setSelectedDayId] = useState(
+    initialData?.days?.length ? initialData.days[0].id : null
+  );
+  const [timelineItems, setTimelineItems] = useState(
+    initialData?.timelineItems?.length ? initialData.timelineItems : []
+  );
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activePanel, setActivePanel] = useState("");
   const [formState, setFormState] = useState({});
@@ -526,7 +650,10 @@ const ItineraryStep = ({ onBack, onNext }) => {
   const [dayEditState, setDayEditState] = useState({ open: false, dayId: null, title: "" });
   const [confirmState, setConfirmState] = useState({ open: false, type: "", targetId: null, message: "" });
   const [hotelOptions, setHotelOptions] = useState([]);
-  const selectedDay = days.find((day) => day.id === selectedDayId) || days[0];
+  const [transferOptions, setTransferOptions] = useState([]);
+  const [mealOptions, setMealOptions] = useState([]);
+  const [sightseeingOptions, setSightseeingOptions] = useState([]);
+  const selectedDay = days.find((day) => day.id === selectedDayId) || days[0] || null;
   const addItemMenuRef = useRef(null);
 
   const sortedItems = useMemo(
@@ -538,17 +665,28 @@ const ItineraryStep = ({ onBack, onNext }) => {
   );
 
   useEffect(() => {
-    const loadHotels = async () => {
+    const loadMasterData = async () => {
       try {
-        const data = await fetchHotels();
-        setHotelOptions(Array.isArray(data) ? data : []);
+        const [hotelsData, transfersData, mealsData, sightseeingData] = await Promise.all([
+          fetchHotels(),
+          fetchTransfers(),
+          fetchMeals(),
+          fetchSightseeing(),
+        ]);
+        setHotelOptions(Array.isArray(hotelsData) ? hotelsData : []);
+        setTransferOptions(Array.isArray(transfersData) ? transfersData : []);
+        setMealOptions(Array.isArray(mealsData) ? mealsData : []);
+        setSightseeingOptions(Array.isArray(sightseeingData) ? sightseeingData : []);
       } catch (error) {
-        console.error("Error loading hotels for itinerary:", error);
+        console.error("Error loading master data for itinerary:", error);
         setHotelOptions([]);
+        setTransferOptions([]);
+        setMealOptions([]);
+        setSightseeingOptions([]);
       }
     };
 
-    loadHotels();
+    loadMasterData();
   }, []);
 
   useEffect(() => {
@@ -582,6 +720,7 @@ const ItineraryStep = ({ onBack, onNext }) => {
   };
 
   const openPanel = (panelType) => {
+    if (!selectedDay) return;
     setActivePanel(panelType);
     const initialState = { ...(defaultForms[panelType] || {}) };
     if (panelType === "Hotel" && hotelOptions.length > 0) {
@@ -592,6 +731,31 @@ const ItineraryStep = ({ onBack, onNext }) => {
       initialState.hotelRating = Number.isFinite(firstHotel.rating)
         ? firstHotel.rating.toFixed(1)
         : "";
+    }
+    if (panelType === "Transfer" && transferOptions.length > 0) {
+      const firstTransfer = transferOptions[0];
+      initialState.transferId = firstTransfer._id;
+      initialState.transferName = firstTransfer.name || "";
+      initialState.transferType = firstTransfer.type || "Airport Pickup";
+      initialState.from = firstTransfer.from || "";
+      initialState.to = firstTransfer.to || "";
+      initialState.vehicle = firstTransfer.vehicle || "";
+      initialState.duration = firstTransfer.duration || "";
+    }
+    if (panelType === "Meal" && mealOptions.length > 0) {
+      const firstMeal = mealOptions[0];
+      initialState.mealId = firstMeal._id;
+      initialState.mealName = firstMeal.name || "";
+      initialState.mealType = firstMeal.mealTime || "Dinner";
+      initialState.restaurant = firstMeal.name || "";
+      initialState.cuisine = firstMeal.cuisine || "";
+    }
+    if (panelType === "Sightseeing" && sightseeingOptions.length > 0) {
+      const firstSightseeing = sightseeingOptions[0];
+      initialState.sightseeingId = firstSightseeing._id;
+      initialState.sightseeingName = firstSightseeing.name || "";
+      initialState.place = firstSightseeing.name || "";
+      initialState.duration = firstSightseeing.duration || "";
     }
     setFormState(initialState);
     setEditingItemId("");
@@ -636,6 +800,7 @@ const ItineraryStep = ({ onBack, onNext }) => {
 
   const handleAddItem = () => {
     if (!activePanel) return;
+    if (!selectedDay) return;
     if (editingItemId) {
       const updatedItem = buildItemFromForm(activePanel, formState, selectedDay);
       setTimelineItems((prev) => prev.map((item) => (item.id === editingItemId ? { ...updatedItem, id: item.id } : item)));
@@ -655,6 +820,12 @@ const ItineraryStep = ({ onBack, onNext }) => {
     setOpenDayMenuId(null);
     closePanel();
   };
+
+  useEffect(() => {
+    if (!selectedDayId && days.length > 0) {
+      setSelectedDayId(days[0].id);
+    }
+  }, [selectedDayId, days]);
 
   const openEditDayModal = (dayId) => {
     const dayToEdit = days.find((day) => day.id === dayId);
@@ -679,16 +850,26 @@ const ItineraryStep = ({ onBack, onNext }) => {
           <p className="mt-1 text-xs text-slate-500">Build your day by day itinerary</p>
           <div className="mt-4 space-y-2 max-h-[445px] overflow-auto no-scrollbar">
             {days.map((dayTab) => (
-              <button
+              <div
                 key={dayTab.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   setSelectedDayId(dayTab.id);
                   setIsMenuOpen(false);
                   setOpenDayMenuId(null);
                   closePanel();
                 }}
-                className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors ${dayTab.id === selectedDayId ? "border-violet-200 bg-violet-50" : "border-slate-200 bg-white hover:border-slate-300"}`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedDayId(dayTab.id);
+                    setIsMenuOpen(false);
+                    setOpenDayMenuId(null);
+                    closePanel();
+                  }
+                }}
+                className={`flex w-full cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors ${dayTab.id === selectedDayId ? "border-violet-200 bg-violet-50" : "border-slate-200 bg-white hover:border-slate-300"}`}
               >
                 <div className="flex items-center gap-2">
                   <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md ${dayTab.id === selectedDayId ? "bg-violet-100 text-violet-600" : "bg-slate-100 text-slate-500"}`}>
@@ -739,7 +920,7 @@ const ItineraryStep = ({ onBack, onNext }) => {
                     </div>
                   ) : null}
                 </div>
-              </button>
+              </div>
             ))}
           </div>
 
@@ -779,7 +960,7 @@ const ItineraryStep = ({ onBack, onNext }) => {
         </section>
 
         {activePanel ? (
-          <RightDrawer panelType={activePanel} formState={formState} setFormState={setFormState} onClose={closePanel} onSubmit={handleAddItem} selectedDay={selectedDay} isEditing={Boolean(editingItemId)} hotelOptions={hotelOptions} />
+          <RightDrawer panelType={activePanel} formState={formState} setFormState={setFormState} onClose={closePanel} onSubmit={handleAddItem} selectedDay={selectedDay} isEditing={Boolean(editingItemId)} hotelOptions={hotelOptions} transferOptions={transferOptions} mealOptions={mealOptions} sightseeingOptions={sightseeingOptions} />
         ) : (
           <aside className="rounded-xl border border-slate-200 bg-white p-4">
             <h4 className="text-2xl font-semibold text-slate-900">Day Summary</h4>
@@ -835,7 +1016,11 @@ const ItineraryStep = ({ onBack, onNext }) => {
         <button type="button" onClick={onBack} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
           Back
         </button>
-        <button type="button" onClick={onNext} className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700">
+        <button
+          type="button"
+          onClick={() => onNext({ days, timelineItems })}
+          className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700"
+        >
           Next Step
         </button>
       </div>

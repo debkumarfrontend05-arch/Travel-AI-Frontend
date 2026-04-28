@@ -155,12 +155,15 @@ const CreateNewPackage = () => {
   const [isEditActivityModalOpen, setIsEditActivityModalOpen] = useState(false);
   const [coverImage, setCoverImage] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
+  const [isManualSaving, setIsManualSaving] = useState(false);
+  const [manualPackageName, setManualPackageName] = useState("");
   const [destination, setDestination] = useState(null);
   const [startLocation, setStartLocation] = useState(null);
   const [endLocation, setEndLocation] = useState(null);
   const [locations, setLocations] = useState([]);
   const [nights, setNights] = useState(null);
   const [days, setDays] = useState(null);
+  const [manualItineraryData, setManualItineraryData] = useState({ days: [], timelineItems: [] });
 
   const resetField = () => {
     console.log('Clicked');
@@ -227,6 +230,8 @@ const CreateNewPackage = () => {
   const closeManualModal = () => {
     setIsManualModalOpen(false);
     setCurrentStep(1);
+    setManualItineraryData({ days: [], timelineItems: [] });
+    setIsManualSaving(false);
   };
 
   const closeAIModal = () => {
@@ -363,6 +368,113 @@ const CreateNewPackage = () => {
 
   const aiDaysCount = Math.max(1, Number(aiForm.nights || 1) + 1);
 
+  const buildManualItineraryPayload = (itineraryData) => {
+    const dayList = itineraryData?.days || [];
+    const items = itineraryData?.timelineItems || [];
+
+    return dayList.map((day, index) => {
+      const dayItems = items
+        .filter((item) => item.dayId === day.id)
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+      return {
+        day: index + 1,
+        title: day.title,
+        hotel: dayItems.find((item) => item.type === "Hotel")?.detail1 || "",
+        transfer: dayItems.find((item) => item.type === "Transfer")?.detail1 || "",
+        sightseeing: dayItems
+          .filter((item) => item.type === "Sightseeing")
+          .map((item) => item.detail1),
+        meals: dayItems
+          .filter((item) => item.type === "Meal")
+          .map((item) => item.detail1),
+        activities: dayItems.map((item) => ({
+          time: item.time,
+          type: item.type,
+          title: item.title,
+          detail1: item.detail1,
+          detail2: item.detail2,
+          status: item.status,
+        })),
+        info: dayItems
+          .filter((item) => item.type === "Information")
+          .map((item) => item.detail2)
+          .join(" | "),
+      };
+    });
+  };
+
+  const handleCreateManualPackage = async () => {
+    if (!manualPackageName.trim()) {
+      alert("Please enter package name.");
+      setCurrentStep(1);
+      return;
+    }
+    if (!destination?.value || !startLocation?.value || !endLocation?.value || !days?.value || !nights?.value) {
+      alert("Please complete basic package information.");
+      setCurrentStep(1);
+      return;
+    }
+    if (!manualItineraryData.days.length || !manualItineraryData.timelineItems.length) {
+      alert("Please add itinerary details before creating package.");
+      setCurrentStep(2);
+      return;
+    }
+
+    setIsManualSaving(true);
+    try {
+      const itinerary = buildManualItineraryPayload(manualItineraryData);
+      const payload = {
+        title: manualPackageName.trim(),
+        state: destination.value,
+        city: startLocation.value,
+        duration: {
+          days: Number(days.value),
+          nights: Number(nights.value),
+        },
+        itinerary,
+        createdVia: "manual",
+      };
+
+      const response = await fetch(`${API_URL}/packages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        let serverMessage = "Failed to create package";
+        try {
+          const errorData = await response.json();
+          serverMessage = errorData?.message || serverMessage;
+        } catch {
+          try {
+            const text = await response.text();
+            if (text) serverMessage = text;
+          } catch {
+            // ignore
+          }
+        }
+        throw new Error(serverMessage);
+      }
+
+      alert("Package created successfully.");
+      closeManualModal();
+      setManualPackageName("");
+      setDestination(null);
+      setStartLocation(null);
+      setEndLocation(null);
+      setNights(null);
+      setDays(null);
+      setCoverImage(null);
+    } catch (error) {
+      console.error("Failed to create package", error);
+      alert(error?.message || "Failed to create package.");
+    } finally {
+      setIsManualSaving(false);
+    }
+  };
+
   return (
     <>
       <section className="h-full rounded-2xl border border-slate-200 bg-white p-5">
@@ -464,6 +576,8 @@ const CreateNewPackage = () => {
                     <input
                       className="rounded-lg border border-slate-200 px-4 py-3 text-sm md:col-span-2"
                       placeholder="Enter package name"
+                      value={manualPackageName}
+                      onChange={(e) => setManualPackageName(e.target.value)}
                     />
                     <label className="relative flex min-h-[120px] cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-violet-300 bg-violet-50/30 p-2 text-center text-sm text-slate-500 md:col-span-2">
                       <input
@@ -566,11 +680,32 @@ const CreateNewPackage = () => {
             ) : null}
 
             {currentStep === 2 ? (
-              <ItineraryStep onBack={() => setCurrentStep(1)} onNext={() => setCurrentStep(3)} />
+              <ItineraryStep
+                onBack={() => setCurrentStep(1)}
+                onNext={(itineraryData) => {
+                  setManualItineraryData(itineraryData);
+                  setCurrentStep(3);
+                }}
+                initialData={manualItineraryData}
+              />
             ) : null}
 
             {currentStep === 3 ? (
-              <ReviewStep onBack={() => setCurrentStep(2)} onClose={closeManualModal} />
+              <ReviewStep
+                onBack={() => setCurrentStep(2)}
+                onClose={closeManualModal}
+                onCreate={handleCreateManualPackage}
+                isSaving={isManualSaving}
+                packageData={{
+                  packageName: manualPackageName,
+                  state: destination?.value || "",
+                  startCity: startLocation?.value || "",
+                  endCity: endLocation?.value || "",
+                  days: days?.value || 0,
+                  nights: nights?.value || 0,
+                }}
+                itineraryData={manualItineraryData}
+              />
             ) : null}
           </div>
         </div>
