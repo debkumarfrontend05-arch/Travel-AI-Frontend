@@ -635,84 +635,109 @@ const HotelsComponent = () => {
 
       {detailHotel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-6 py-4">
-              <div className="flex items-start justify-between gap-4">
+          <div className="flex max-h-[82vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-900">{detailHotel.name}</h3>
-                  <p className="text-sm text-slate-500">Hotel Details</p>
+                  <h3 className="text-lg font-semibold leading-tight text-slate-900">{detailHotel.name}</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Hotel Details</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setDetailHotelId(null)}
-                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                  aria-label="Close details modal"
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${detailHotel.status === "Active"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-rose-100 text-rose-700"
+                      }`}
+                  >
+                    {detailHotel.status}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDetailHotelId(null)}
+                    className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                    aria-label="Close details modal"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-4 overflow-y-auto p-6">
-              <div className="grid gap-2 text-sm text-slate-700">
-                <p className="inline-flex items-center gap-2">
-                  <MapPin size={15} className="text-slate-400" />
-                  {detailHotel.address || "-"}
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <Phone size={15} className="text-slate-400" />
-                  {detailHotel.phone || "-"}
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <Mail size={15} className="text-slate-400" />
-                  {detailHotel.email || "-"}
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <Globe size={15} className="text-slate-400" />
-                  {detailHotel.website || "-"}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
-                  <p className="text-xs text-slate-500">Rooms</p>
-                  <p className="inline-flex items-center gap-1 text-sm font-semibold text-slate-800">
+            <div className="space-y-4 overflow-y-auto p-5">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Rooms</p>
+                  <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800">
                     <BedDouble size={14} />
-                    {detailHotel.rooms}
+                    {detailHotel.rooms || 0}
                   </p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
-                  <p className="text-xs text-slate-500">Rating</p>
-                  <p className="inline-flex items-center gap-1 text-sm font-semibold text-slate-800">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Rating</p>
+                  <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800">
                     <Star size={14} />
-                    {detailHotel.rating.toFixed(1)}
+                    {(detailHotel.rating || 0).toFixed(1)}
                   </p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
-                  <p className="text-xs text-slate-500">Status</p>
-                  <p className="text-sm font-semibold text-slate-800">{detailHotel.status}</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Category</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{detailHotel.category || "-"}</p>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-3">
-                <p className="text-sm font-semibold text-slate-800">Category</p>
-                <p className="mt-1 text-sm text-slate-600">{detailHotel.category}</p>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</p>
+                  <div>
+                  <p className="inline-flex items-start gap-2 text-sm text-slate-700">
+                    <MapPin size={15} className="mt-0.5 shrink-0 text-slate-400" />
+                    <span>{detailHotel.address || "-"}</span>
+                  </p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                  <p className="inline-flex items-center gap-2 text-sm text-slate-700">
+                    <Phone size={15} className="shrink-0 text-slate-400" />
+                    <span>{detailHotel.phone || "-"}</span>
+                  </p>
+                  <p className="inline-flex items-center gap-2 text-sm text-slate-700">
+                    <Mail size={15} className="shrink-0 text-slate-400" />
+                    <span>{detailHotel.email || "-"}</span>
+                  </p>
+                  </div>
+                  <p className="inline-flex items-center gap-2 text-sm text-slate-700">
+                    <Globe size={15} className="shrink-0 text-slate-400" />
+                    {detailHotel.website ? (
+                      <a
+                        href={detailHotel.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="truncate text-violet-700 hover:text-violet-800 hover:underline"
+                      >
+                        {detailHotel.website}
+                      </a>
+                    ) : (
+                      <span>-</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-slate-200 p-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Last Updated</p>
+                    <p className="mt-1 text-sm text-slate-700">{detailHotel.updated || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Description</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-700">
+                      {detailHotel.description || "No description available."}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-3">
-                <p className="text-sm font-semibold text-slate-800">Last Updated</p>
-                <p className="mt-1 text-sm text-slate-600">{detailHotel.updated}</p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 p-3">
-                <p className="text-sm font-semibold text-slate-800">Description</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {detailHotel.description || "No description available."}
-                </p>
-              </div>
             </div>
 
-            <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white px-6 py-4">
+            <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white px-5 py-3.5">
               <div className="flex justify-end gap-3">
                 <button
                   type="button"

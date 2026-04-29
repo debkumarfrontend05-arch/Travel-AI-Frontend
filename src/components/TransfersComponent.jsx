@@ -268,53 +268,53 @@ const TransfersComponent = () => {
                 : paginatedRows.map((transfer, index) => (
                 <tr
                   key={transfer._id}
-                  onClick={() => setDetailTransferId(transfer._id)}
-                  className={`cursor-pointer ${index % 2 === 0 ? "bg-white" : "bg-slate-50/40"} hover:bg-slate-50/70`}
-                >
-                  <td className="px-4 py-3">
-                    <span className="font-medium text-slate-700">{transfer.name}</span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{transfer.type}</td>
-                  <td className="px-4 py-3 text-slate-600">{transfer.vehicle}</td>
-                  <td className="px-4 py-3 text-slate-600">{transfer.capacity} Passenger</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${transfer.status === "Active"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-rose-100 text-rose-700"
-                        }`}
-                    >
-                      {transfer.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        title="Edit Transfer"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openEditModal(transfer);
-                        }}
-                        className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-violet-50 hover:text-violet-700"
+                    onClick={() => setDetailTransferId(transfer._id)}
+                    className={`cursor-pointer ${index % 2 === 0 ? "bg-white" : "bg-slate-50/40"} hover:bg-slate-50/70`}
+                  >
+                    <td className="px-4 py-3">
+                      <span className="font-medium text-slate-700">{transfer.name}</span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{transfer.type}</td>
+                    <td className="px-4 py-3 text-slate-600">{transfer.vehicle}</td>
+                    <td className="px-4 py-3 text-slate-600">{transfer.capacity} Passenger</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${transfer.status === "Active"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-rose-100 text-rose-700"
+                          }`}
                       >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        title="Delete Transfer"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openDeleteConfirm(transfer._id);
-                        }}
-                        className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-rose-50 hover:text-rose-700"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {transfer.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          title="Edit Transfer"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openEditModal(transfer);
+                          }}
+                          className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-violet-50 hover:text-violet-700"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete Transfer"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openDeleteConfirm(transfer._id);
+                          }}
+                          className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-rose-50 hover:text-rose-700"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
 
               {!loading && paginatedRows.length === 0 && (
                 <tr>
@@ -580,63 +580,93 @@ const TransfersComponent = () => {
 
       {detailTransfer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-6 py-4">
-              <div className="flex items-start justify-between gap-4">
+          <div className="flex max-h-[82vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-900">{detailTransfer.name}</h3>
-                  <p className="text-sm text-slate-500">Transfer Details</p>
+                  <h3 className="text-lg font-semibold leading-tight text-slate-900">{detailTransfer.name}</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Transfer Details</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setDetailTransferId(null)}
-                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                  aria-label="Close details modal"
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${detailTransfer.status === "Active"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-rose-100 text-rose-700"
+                      }`}
+                  >
+                    {detailTransfer.status}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDetailTransferId(null)}
+                    className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                    aria-label="Close details modal"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-4 overflow-y-auto p-6">
-              <div className="grid gap-2 text-sm text-slate-700">
-                <p>
-                  <span className="font-semibold text-slate-800">Type:</span> {detailTransfer.type}
-                </p>
-                <p>
-                  <span className="font-semibold text-slate-800">From:</span> {detailTransfer.from}
-                </p>
-                <p>
-                  <span className="font-semibold text-slate-800">To:</span> {detailTransfer.to}
-                </p>
-                <p>
-                  <span className="font-semibold text-slate-800">Vehicle:</span> {detailTransfer.vehicle}
-                </p>
-                <p>
-                  <span className="font-semibold text-slate-800">Capacity:</span> {detailTransfer.capacity} Passenger
-                </p>
-                <p>
-                  <span className="font-semibold text-slate-800">Duration:</span> {detailTransfer.duration}
-                </p>
-                <p>
-                  <span className="font-semibold text-slate-800">Status:</span> {detailTransfer.status}
-                </p>
+            <div className="space-y-4 overflow-y-auto p-5">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Type</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{detailTransfer.type || "-"}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Vehicle</p>
+                  <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                    <Car size={14} />
+                    {detailTransfer.vehicle || "-"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Capacity</p>
+                  <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                    <UserRound size={14} />
+                    {detailTransfer.capacity || 0} Passenger
+                  </p>
+                </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-3">
-                <p className="text-sm font-semibold text-slate-800">Description</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {detailTransfer.description || "No description available."}
-                </p>
-              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-3 rounded-xl border border-slate-200 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Route</p>
+                  <div>
+                    <p className="inline-flex items-start gap-2 text-sm text-slate-700">
+                      <MapPin size={15} className="mt-0.5 shrink-0 text-slate-400" />
+                      <span><span className="font-medium text-slate-800">From:</span> {detailTransfer.from || "-"}</span>
+                    </p>
+                  </div>
+                  <div>
+                  <p className="inline-flex items-start gap-2 text-sm text-slate-700">
+                    <MapPin size={15} className="mt-0.5 shrink-0 text-slate-400" />
+                    <span><span className="font-medium text-slate-800">To:</span> {detailTransfer.to || "-"}</span>
+                  </p>
+                  </div>
+                  <p className="inline-flex items-center gap-2 text-sm text-slate-700">
+                    <Clock3 size={15} className="shrink-0 text-slate-400" />
+                    <span><span className="font-medium text-slate-800">Duration:</span> {detailTransfer.duration || "-"}</span>
+                  </p>
+                </div>
 
-              <div className="rounded-xl border border-slate-200 p-3">
-                <p className="text-sm font-semibold text-slate-800">Features</p>
-                <p className="mt-1 text-sm text-slate-600">{detailTransfer.features || "-"}</p>
+                <div className="space-y-3 rounded-xl border border-slate-200 p-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Description</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-700">
+                      {detailTransfer.description || "No description available."}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Features</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-700">{detailTransfer.features || "-"}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white px-6 py-4">
+            <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white px-5 py-3.5">
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
