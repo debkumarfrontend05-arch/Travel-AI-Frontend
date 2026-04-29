@@ -94,7 +94,7 @@ const AllPackageTable = ({ recentPackages, onEditPackage, onDeletePackage, isLoa
                                         <td className="px-5 py-3"><div className="h-4 w-4 animate-pulse rounded bg-slate-200" /></td>
                                     </tr>
                                 ))
-                                : paginatedPackages.map((pkg) => (
+                                : paginatedPackages.map((pkg, index) => (
                                 <tr key={pkg.id || pkg.name} className="border-t border-slate-100">
                                     <td className="px-5 py-3">
                                         <div className="flex items-center gap-3">
@@ -125,7 +125,11 @@ const AllPackageTable = ({ recentPackages, onEditPackage, onDeletePackage, isLoa
                                                 <MoreVertical size={16} />
                                             </button>
                                             {openMenuId === (pkg.id || pkg.name) && (
-                                                <div className="absolute right-0 z-20 mt-2 w-32 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                                                <div
+                                                    className={`absolute right-0 z-20 w-32 rounded-lg border border-slate-200 bg-white py-1 shadow-lg ${
+                                                        index >= paginatedPackages.length - 2 ? "bottom-full mb-2" : "top-full mt-2"
+                                                    }`}
+                                                >
                                                     <button
                                                         type="button"
                                                         className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
