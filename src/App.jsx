@@ -6,11 +6,13 @@ import HotelsPage from './pages/HotelsPage';
 import TransfersPage from './pages/TransfersPage';
 import SightseeingPage from './pages/SightseeingPage';
 import MealsPage from './pages/MealsPage';
+import LoginPage from './pages/LoginPage';
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Dashboard />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route path="/packages" element={<PackagesPage />} />
       <Route path="/hotels" element={<HotelsPage />} />
       <Route path="/transfers" element={<TransfersPage />} />
