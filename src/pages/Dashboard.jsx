@@ -10,7 +10,7 @@ import Sidebar from "../components/Sidebar";
 import BookingsOverview from "../components/BookingsOverview";
 import DashboardStatsCard from "../components/DashboardStatsCard";
 import CreateNewPackage from "../components/CreateNewPackage";
-import API_URL from "../api";
+import API_URL, { fetchHotels, fetchTransfers, fetchMeals, fetchSightseeing } from "../api";
 import AllPackageTable from "../components/AllPackageTable";
 import toast from "react-hot-toast";
 
@@ -66,6 +66,31 @@ const Dashboard = () => {
         type: "Manual",
         route: "",
     });
+    const [masterHotels, setMasterHotels] = useState([]);
+    const [masterTransfers, setMasterTransfers] = useState([]);
+    const [masterMeals, setMasterMeals] = useState([]);
+    const [masterSightseeing, setMasterSightseeing] = useState([]);
+
+    useEffect(() => {
+        const loadMasterData = async () => {
+            try {
+                const [h, t, m, s] = await Promise.all([
+                    fetchHotels(),
+                    fetchTransfers(),
+                    fetchMeals(),
+                    fetchSightseeing()
+                ]);
+                setMasterHotels(Array.isArray(h) ? h : []);
+                setMasterTransfers(Array.isArray(t) ? t : []);
+                setMasterMeals(Array.isArray(m) ? m : []);
+                setMasterSightseeing(Array.isArray(s) ? s : []);
+            } catch (err) {
+                console.error("Failed to load master data", err);
+            }
+        };
+        loadMasterData();
+    }, []);
+
     const destinationPalette = ["#6d5efc", "#4f8df7", "#35c88a", "#ffa44b", "#f48aa8", "#22c55e"];
     const liveStatsCards = useMemo(() => {
         const totalPackages = recentPackages.length;
@@ -242,22 +267,58 @@ const Dashboard = () => {
             prev.map((day, idx) => (idx === index ? { ...day, title: value } : day))
         );
     };
-    const handleEditDayActivitiesChange = (index, value) => {
-        const nextActivities = value
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .map((line, activityIdx) => ({
-                id: `edited-${index}-${activityIdx}`,
-                type: "Information",
-                title: line,
-                detail1: line,
-                detail2: "",
-                status: "Planned",
-            }));
+    const getFieldValue = (day, field) => {
+        if (field === "Hotel" && day.hotel) return day.hotel;
+        if (field === "Transfer" && day.transfer) return day.transfer;
+        if (field === "Meal" && Array.isArray(day.meals) && day.meals.length > 0) return day.meals[0];
+        if (field === "Sightseeing" && Array.isArray(day.sightseeing) && day.sightseeing.length > 0) return day.sightseeing[0];
+        if (field === "Information" && day.info) return day.info;
 
+        if (Array.isArray(day.activities)) {
+            if (field !== "Information") {
+                const typedAct = day.activities.find(a => a.type === field);
+                if (typedAct && typedAct.detail1) return typedAct.detail1;
+            }
+            const prefix = `${field}:`;
+            const stringAct = day.activities.find(a => {
+                const text = typeof a === "string" ? a : (a?.title || a?.detail1 || "");
+                return text.startsWith(prefix);
+            });
+            if (stringAct) {
+                const text = typeof stringAct === "string" ? stringAct : (stringAct?.title || stringAct?.detail1 || "");
+                return text.substring(prefix.length).trim();
+            }
+        }
+        return "";
+    };
+
+    const handleEditDayFieldChange = (index, field, value) => {
         setEditItinerary((prev) =>
-            prev.map((day, idx) => (idx === index ? { ...day, activities: nextActivities } : day))
+            prev.map((day, idx) => {
+                if (idx !== index) return day;
+                const updatedDay = { ...day };
+
+                if (field === "Hotel") updatedDay.hotel = value;
+                if (field === "Transfer") updatedDay.transfer = value;
+                if (field === "Meal") updatedDay.meals = [value];
+                if (field === "Sightseeing") updatedDay.sightseeing = [value];
+                if (field === "Information") updatedDay.info = value;
+
+                const h = field === "Hotel" ? value : getFieldValue(day, "Hotel");
+                const t = field === "Transfer" ? value : getFieldValue(day, "Transfer");
+                const m = field === "Meal" ? value : getFieldValue(day, "Meal");
+                const s = field === "Sightseeing" ? value : getFieldValue(day, "Sightseeing");
+                const i = field === "Information" ? value : getFieldValue(day, "Information");
+
+                updatedDay.activities = [
+                    { id: `edited-${idx}-0`, type: "Information", title: `Hotel: ${h || "-"}`, detail1: `Hotel: ${h || "-"}`, detail2: "", status: "Planned" },
+                    { id: `edited-${idx}-1`, type: "Information", title: `Transfer: ${t || "-"}`, detail1: `Transfer: ${t || "-"}`, detail2: "", status: "Planned" },
+                    { id: `edited-${idx}-2`, type: "Information", title: `Meal: ${m || "-"}`, detail1: `Meal: ${m || "-"}`, detail2: "", status: "Planned" },
+                    { id: `edited-${idx}-3`, type: "Information", title: `Sightseeing: ${s || "-"}`, detail1: `Sightseeing: ${s || "-"}`, detail2: "", status: "Planned" },
+                    { id: `edited-${idx}-4`, type: "Information", title: `Information: ${i || "-"}`, detail1: `Information: ${i || "-"}`, detail2: "", status: "Planned" }
+                ];
+                return updatedDay;
+            })
         );
     };
     const handleUpdatePackage = async () => {
@@ -505,7 +566,7 @@ const Dashboard = () => {
             ) : null}
             {selectedEditPackage ? (
                 <div data-lenis-prevent className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4">
-                    <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-xl">
+                    <div className="w-full max-w-5xl rounded-2xl bg-white p-5 shadow-xl">
                         <h4 className="text-lg font-semibold text-slate-900">Edit Package</h4>
                         <p className="mt-1 text-sm text-slate-500">Update package information for dashboard listing.</p>
 
@@ -591,19 +652,74 @@ const Dashboard = () => {
                                                 onChange={(event) => handleEditDayTitleChange(idx, event.target.value)}
                                                 className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm font-semibold text-slate-800 outline-none focus:border-violet-300"
                                             />
-                                            <textarea
-                                                value={(Array.isArray(day?.activities) ? day.activities : [])
-                                                    .map((activity) =>
-                                                        typeof activity === "string"
-                                                            ? activity
-                                                            : activity?.title || activity?.detail1 || ""
-                                                    )
-                                                    .filter(Boolean)
-                                                    .join("\n")}
-                                                onChange={(event) => handleEditDayActivitiesChange(idx, event.target.value)}
-                                                placeholder="One activity per line"
-                                                className="mt-2 h-24 w-full resize-y rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-violet-300"
-                                            />
+                                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                                <label className="grid gap-1 text-xs text-slate-700">
+                                                    Hotel
+                                                    <select
+                                                        value={getFieldValue(day, "Hotel")}
+                                                        onChange={(e) => handleEditDayFieldChange(idx, "Hotel", e.target.value)}
+                                                        className="rounded-md border border-slate-200 px-2 py-1.5 outline-none focus:border-violet-300"
+                                                    >
+                                                        <option value="">Select Hotel</option>
+                                                        <option value="-">-</option>
+                                                        {masterHotels.map(h => (
+                                                            <option key={h._id || h.id} value={h.hotelName || h.name}>{h.hotelName || h.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </label>
+                                                <label className="grid gap-1 text-xs text-slate-700">
+                                                    Transfer
+                                                    <select
+                                                        value={getFieldValue(day, "Transfer")}
+                                                        onChange={(e) => handleEditDayFieldChange(idx, "Transfer", e.target.value)}
+                                                        className="rounded-md border border-slate-200 px-2 py-1.5 outline-none focus:border-violet-300"
+                                                    >
+                                                        <option value="">Select Transfer</option>
+                                                        <option value="-">-</option>
+                                                        {masterTransfers.map(t => (
+                                                            <option key={t._id || t.id} value={t.transferType || t.name}>{t.transferType || t.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </label>
+                                                <label className="grid gap-1 text-xs text-slate-700">
+                                                    Meal
+                                                    <select
+                                                        value={getFieldValue(day, "Meal")}
+                                                        onChange={(e) => handleEditDayFieldChange(idx, "Meal", e.target.value)}
+                                                        className="rounded-md border border-slate-200 px-2 py-1.5 outline-none focus:border-violet-300"
+                                                    >
+                                                        <option value="">Select Meal</option>
+                                                        <option value="-">-</option>
+                                                        {masterMeals.map(m => (
+                                                            <option key={m._id || m.id} value={m.mealType || m.name}>{m.mealType || m.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </label>
+                                                <label className="grid gap-1 text-xs text-slate-700">
+                                                    Sightseeing
+                                                    <select
+                                                        value={getFieldValue(day, "Sightseeing")}
+                                                        onChange={(e) => handleEditDayFieldChange(idx, "Sightseeing", e.target.value)}
+                                                        className="rounded-md border border-slate-200 px-2 py-1.5 outline-none focus:border-violet-300"
+                                                    >
+                                                        <option value="">Select Sightseeing</option>
+                                                        <option value="-">-</option>
+                                                        {masterSightseeing.map(s => (
+                                                            <option key={s._id || s.id} value={s.activityName || s.name}>{s.activityName || s.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </label>
+                                                <label className="grid gap-1 text-xs text-slate-700 sm:col-span-2">
+                                                    Information
+                                                    <input
+                                                        type="text"
+                                                        value={getFieldValue(day, "Information")}
+                                                        onChange={(e) => handleEditDayFieldChange(idx, "Information", e.target.value)}
+                                                        placeholder="Any extra info..."
+                                                        className="rounded-md border border-slate-200 px-2 py-1.5 outline-none focus:border-violet-300"
+                                                    />
+                                                </label>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
