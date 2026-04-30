@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { fetchMeals, addMeal, updateMeal, deleteMeal as deleteMealApi } from "../api";
+import toast from "react-hot-toast";
 
 
 const fallbackImage =
@@ -161,7 +162,7 @@ const MealsComponent = () => {
       loadMeals();
       closeFormModal();
     } catch (error) {
-      alert("Error saving meal: " + error.message);
+      toast.error("Error saving meal: " + error.message);
     }
   };
 
@@ -177,7 +178,7 @@ const MealsComponent = () => {
       if (detailMealId === deleteMealId) setDetailMealId(null);
       setDeleteMealId(null);
     } catch (error) {
-      alert("Error deleting meal: " + error.message);
+      toast.error("Error deleting meal: " + error.message);
     }
   };
 

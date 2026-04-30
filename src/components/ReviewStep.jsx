@@ -19,7 +19,7 @@ const ReviewChip = ({ icon: Icon, label, count, colorClass }) => (
   </div>
 );
 
-const ReviewStep = ({ onBack, onCreate, packageData, itineraryData, isSaving }) => {
+const ReviewStep = ({ onBack, onCreate, onGenerateMd, packageData, itineraryData, isSaving }) => {
   const summary = useMemo(() => {
     const timelineItems = itineraryData?.timelineItems || [];
     return {
@@ -88,15 +88,24 @@ const ReviewStep = ({ onBack, onCreate, packageData, itineraryData, isSaving }) 
         >
           Back
         </button>
-        <button
-          type="button"
-          onClick={onCreate}
-          disabled={isSaving}
-          className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-300"
-        >
-          {isSaving ? <Loader2 size={16} className="animate-spin" /> : null}
-          {isSaving ? "Creating..." : "Create Package"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onGenerateMd}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            Generate .md File
+          </button>
+          <button
+            type="button"
+            onClick={onCreate}
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-300"
+          >
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : null}
+            {isSaving ? "Creating..." : "Create Package"}
+          </button>
+        </div>
       </div>
     </div>
   );

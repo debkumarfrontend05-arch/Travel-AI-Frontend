@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { fetchSightseeing, addSightseeing, updateSightseeing, deleteSightseeing as deleteSightseeingApi } from "../api";
+import toast from "react-hot-toast";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80";
@@ -163,7 +164,7 @@ const SightseeingComponent = () => {
       loadActivities();
       closeFormModal();
     } catch (error) {
-      alert("Error saving sightseeing: " + error.message);
+      toast.error("Error saving sightseeing: " + error.message);
     }
   };
 
@@ -179,7 +180,7 @@ const SightseeingComponent = () => {
       if (detailActivityId === deleteActivityId) setDetailActivityId(null);
       setDeleteActivityId(null);
     } catch (error) {
-      alert("Error deleting sightseeing: " + error.message);
+      toast.error("Error deleting sightseeing: " + error.message);
     }
   };
 

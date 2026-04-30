@@ -19,6 +19,7 @@ import {
   Trash2,
 } from "lucide-react";
 import API_URL from "../api";
+import toast from "react-hot-toast";
 
 const packageRows = [
   {
@@ -443,7 +444,7 @@ const PackagesComponent = () => {
       setSelectedDeletePackage(null);
     } catch (error) {
       console.error("Failed to delete package", error);
-      alert("Failed to delete package");
+      toast.error("Failed to delete package");
     } finally {
       setIsDeleting(false);
     }
@@ -473,11 +474,11 @@ const PackagesComponent = () => {
               Ctrl+K
             </span>
           </label>
-          <button className="inline-flex h-12 items-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700">
+          {/* <button className="inline-flex h-12 items-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700">
             <Sparkles size={16} />
             Create Package
             <ChevronDown size={14} />
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -624,7 +625,7 @@ const PackagesComponent = () => {
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-lg font-semibold text-slate-900">{pkg.name}</h3>
                   <p className="text-right text-violet-600">
-                    <span className="text-2xl font-semibold">${pkg.price.toLocaleString()}</span>
+                    <span className="text-2xl font-semibold">₹{pkg.price.toLocaleString()}</span>
                     <span className="block text-xs text-slate-500">per person</span>
                   </p>
                 </div>
@@ -753,8 +754,8 @@ const PackagesComponent = () => {
 
       {selectedPackage ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="shrink-0 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-semibold text-slate-900">{selectedPackage.name}</h3>
@@ -772,7 +773,7 @@ const PackagesComponent = () => {
               </div>
             </div>
 
-            <div className="p-4">
+            <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto p-4">
               <img
                 src={selectedPackage.image}
                 alt={selectedPackage.name}

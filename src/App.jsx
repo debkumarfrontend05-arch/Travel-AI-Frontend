@@ -8,11 +8,13 @@ import SightseeingPage from './pages/SightseeingPage';
 import MealsPage from './pages/MealsPage';
 import LoginPage from './pages/LoginPage';
 import SmoothScroll from './components/SmoothScroll';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
     <>
       <SmoothScroll />
+      <Toaster position="top-right" toastOptions={{ duration: 2800 }} />
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/login" element={<LoginPage />} />

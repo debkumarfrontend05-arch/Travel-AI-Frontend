@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { fetchTransfers, addTransfer, updateTransfer, deleteTransfer as deleteTransferApi } from "../api";
+import toast from "react-hot-toast";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=900&q=80";
@@ -164,7 +165,7 @@ const TransfersComponent = () => {
       loadTransfers();
       closeFormModal();
     } catch (error) {
-      alert("Error saving transfer: " + error.message);
+      toast.error("Error saving transfer: " + error.message);
     }
   };
 
@@ -180,7 +181,7 @@ const TransfersComponent = () => {
       if (detailTransferId === deleteTransferId) setDetailTransferId(null);
       setDeleteTransferId(null);
     } catch (error) {
-      alert("Error deleting transfer: " + error.message);
+      toast.error("Error deleting transfer: " + error.message);
     }
   };
 
@@ -413,7 +414,7 @@ const TransfersComponent = () => {
                       value={formData.name}
                       onChange={handleFormChange}
                       required
-                      placeholder="e.g. Airport Pickup"
+                      placeholder="Enter transfer name"
                       className="h-11 w-full rounded-xl border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-violet-400"
                     />
                   </div>

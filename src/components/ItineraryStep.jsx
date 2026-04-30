@@ -21,6 +21,7 @@ import {
   ListChecks,
 } from "lucide-react";
 import { fetchHotels, fetchTransfers, fetchMeals, fetchSightseeing } from "../api";
+import toast from "react-hot-toast";
 
 const initialDays = [
   { id: 1, day: "Day 1", title: "Arrival in Bangkok", icon: MapPinned },
@@ -384,7 +385,7 @@ const RightDrawer = ({
   const setValue = (key, value) => setFormState((prev) => ({ ...prev, [key]: value }));
 
   return (
-    <aside className="w-full rounded-xl border border-slate-200 bg-white p-4 xl:w-[320px]">
+    <aside className="flex max-h-[78vh] w-full flex-col rounded-xl border border-slate-200 bg-white p-4 xl:w-[320px] xl:max-h-[calc(100vh-190px)]">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xl font-semibold text-slate-900">Add {panelType}</p>
@@ -399,7 +400,7 @@ const RightDrawer = ({
         </button>
       </div>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
         {panelType === "Hotel" ? (
           <>
             <DrawerField label="Hotel Name">
@@ -635,7 +636,14 @@ const RightDrawer = ({
   );
 };
 
-const ItineraryStep = ({ onBack, onNext, initialData, selectedState = "" }) => {
+const ItineraryStep = ({
+  onBack,
+  onNext,
+  initialData,
+  selectedState = "",
+  selectedTripDays = 0,
+  selectedTripNights = 0,
+}) => {
   const [days, setDays] = useState(initialData?.days?.length ? initialData.days : []);
   const [selectedDayId, setSelectedDayId] = useState(
     initialData?.days?.length ? initialData.days[0].id : null
@@ -821,6 +829,13 @@ const ItineraryStep = ({ onBack, onNext, initialData, selectedState = "" }) => {
   };
 
   const handleAddDay = () => {
+    if (selectedTripDays > 0 && days.length >= selectedTripDays) {
+      toast.error(
+        `You can't add day. Your trip is ${selectedTripNights} night ${selectedTripDays} days.`
+      );
+      return;
+    }
+
     const nextId = days.length ? Math.max(...days.map((day) => day.id)) + 1 : 1;
     const newDay = { id: nextId, day: `Day ${days.length + 1}`, title: "New Day Plan", icon: TreePalm };
     setDays((prev) => [...prev, newDay]);
@@ -960,11 +975,11 @@ const ItineraryStep = ({ onBack, onNext, initialData, selectedState = "" }) => {
         ) : (
           <aside className="rounded-xl border border-slate-200 bg-white p-4">
             <h4 className="text-2xl font-semibold text-slate-900">Day Summary</h4>
-            <img
+            {/* <img
               src="https://images.unsplash.com/photo-1563492065-1f3c16c6f11b?auto=format&fit=crop&w=640&q=80"
               alt="Day destination"
               className="mt-3 h-36 w-full rounded-lg object-cover"
-            />
+            /> */}
             <p className="mt-3 text-lg font-semibold text-slate-900">{selectedDay?.day}</p>
             <p className="text-sm text-slate-500">{selectedDay?.title}</p>
 
@@ -1049,7 +1064,15 @@ const ItineraryStep = ({ onBack, onNext, initialData, selectedState = "" }) => {
         </button>
         <button
           type="button"
-          onClick={() => onNext({ days, timelineItems })}
+          onClick={() => {
+            if (selectedTripDays > 0 && days.length !== selectedTripDays) {
+              toast.error(
+                `Please keep exactly ${selectedTripDays} itinerary days for ${selectedTripNights} night ${selectedTripDays} days trip.`
+              );
+              return;
+            }
+            onNext({ days, timelineItems });
+          }}
           className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700"
         >
           Next Step

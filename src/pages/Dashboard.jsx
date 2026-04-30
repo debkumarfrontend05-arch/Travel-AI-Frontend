@@ -3,7 +3,7 @@ import {
     Briefcase,
     Sparkles,
     PencilLine,
-    UsersRound,
+    FileText,
 } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import Sidebar from "../components/Sidebar";
@@ -12,48 +12,8 @@ import DashboardStatsCard from "../components/DashboardStatsCard";
 import CreateNewPackage from "../components/CreateNewPackage";
 import API_URL from "../api";
 import AllPackageTable from "../components/AllPackageTable";
+import toast from "react-hot-toast";
 
-
-const statsCards = [
-    {
-        title: "Total Packages",
-        value: "128",
-        subtitle: "vs last month",
-        change: "↑ 12.5%",
-        icon: Briefcase,
-        iconBgClass: "bg-violet-100",
-        iconColorClass: "text-violet-600",
-    },
-    {
-        title: "AI Generated",
-        value: "45",
-        subtitle: "of total packages",
-        change: "35.2%",
-        icon: Sparkles,
-        iconBgClass: "bg-blue-100",
-        iconColorClass: "text-blue-600",
-        changeBgClass: "bg-blue-100",
-        changeTextClass: "text-blue-600",
-    },
-    {
-        title: "Manual Packages",
-        value: "62",
-        subtitle: "of total packages",
-        change: "48.4%",
-        icon: PencilLine,
-        iconBgClass: "bg-emerald-100",
-        iconColorClass: "text-emerald-600",
-    },
-    {
-        title: "Total Bookings",
-        value: "342",
-        subtitle: "vs last month",
-        change: "↑ 18.6%",
-        icon: UsersRound,
-        iconBgClass: "bg-pink-100",
-        iconColorClass: "text-pink-600",
-    },
-];
 
 const fallbackImage = "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?auto=format&fit=crop&w=200&q=80";
 const resolvePackageImage = (pkg) => {
@@ -82,15 +42,6 @@ const resolvePackageImage = (pkg) => {
     return `${API_URL.replace(/\/api\/?$/, "")}${uploadPath}`;
 };
 
-const destinationBreakdown = [
-    { name: "Thailand", value: 35, color: "#6d5efc" },
-    { name: "Kerala", value: 22, color: "#4f8df7" },
-    { name: "Dubai", value: 15, color: "#35c88a" },
-    { name: "Bali", value: 12, color: "#ffa44b" },
-    { name: "Singapore", value: 8, color: "#f48aa8" },
-    { name: "Others", value: 8, color: "#c8cfdf" },
-];
-
 const typeBreakdown = [
     { name: "Manual", count: 48, percentText: "37.5%", chartPercent: 38, color: "#4f8df7" },
     { name: "AI Generated", count: 45, percentText: "35.2%", chartPercent: 35, color: "#8b6df9" },
@@ -103,6 +54,7 @@ const Dashboard = () => {
     const [recentPackages, setRecentPackages] = useState([]);
     const [isStatsLoading, setIsStatsLoading] = useState(true);
     const [selectedDeletePackage, setSelectedDeletePackage] = useState(null);
+    const [isDeletingPackage, setIsDeletingPackage] = useState(false);
     const [selectedEditPackage, setSelectedEditPackage] = useState(null);
     const [editForm, setEditForm] = useState({
         name: "",
@@ -111,16 +63,55 @@ const Dashboard = () => {
         type: "Manual",
         route: "",
     });
-    const liveStatsCards = useMemo(
-        () =>
-            statsCards.map((card) =>
-                card.title === "Total Packages"
-                    ? { ...card, value: String(recentPackages.length) }
-                    : card
-            ),
-        [recentPackages.length]
-    );
-    
+    const destinationPalette = ["#6d5efc", "#4f8df7", "#35c88a", "#ffa44b", "#f48aa8", "#22c55e"];
+    const liveStatsCards = useMemo(() => {
+        const totalPackages = recentPackages.length;
+        const aiCount = recentPackages.filter((pkg) => pkg?.createdVia === "ai").length;
+        const mdCount = recentPackages.filter((pkg) => pkg?.createdVia === "md").length;
+        const manualCount = Math.max(0, totalPackages - aiCount - mdCount);
+
+        const toPercent = (value) =>
+            totalPackages > 0 ? `${((value / totalPackages) * 100).toFixed(1)}%` : "0.0%";
+
+        return [
+            {
+                title: "Total Packages",
+                value: String(totalPackages),
+                subtitle: "live packages",
+                change: "",
+                icon: Briefcase,
+                iconBgClass: "bg-violet-100",
+                iconColorClass: "text-violet-600",
+            },
+            {
+                title: "AI Generated",
+                value: String(aiCount),
+                subtitle: "of total packages",
+                change: toPercent(aiCount),
+                icon: Sparkles,
+                iconBgClass: "bg-blue-100",
+                iconColorClass: "text-blue-600",
+            },
+            {
+                title: "Manual Packages",
+                value: String(manualCount),
+                subtitle: "of total packages",
+                change: toPercent(manualCount),
+                icon: PencilLine,
+                iconBgClass: "bg-emerald-100",
+                iconColorClass: "text-emerald-600",
+            },
+            {
+                title: "MD Promt Generator",
+                value: String(mdCount),
+                subtitle: "of total packages",
+                change: toPercent(mdCount),
+                icon: FileText,
+                iconBgClass: "bg-pink-100",
+                iconColorClass: "text-pink-600",
+            },
+        ];
+    }, [recentPackages]);
     useEffect(() => {
         const loadRecentPackages = async () => {
             setIsStatsLoading(true);
@@ -190,10 +181,78 @@ const Dashboard = () => {
         setSelectedDeletePackage(pkg);
     };
 
+    const confirmDeletePackage = async () => {
+        const packageId =
+            selectedDeletePackage?.raw?._id ||
+            selectedDeletePackage?.raw?.id ||
+            selectedDeletePackage?.id;
+
+        if (!packageId) return;
+
+        setIsDeletingPackage(true);
+        try {
+            const response = await fetch(`${API_URL}/packages/${packageId}`, {
+                method: "DELETE",
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to delete package");
+            }
+
+            setRecentPackages((prev) =>
+                prev.filter((pkg) => {
+                    const currentId = pkg?._id || pkg?.id || pkg?.packageId || pkg?.title;
+                    return String(currentId) !== String(packageId);
+                })
+            );
+            setSelectedDeletePackage(null);
+            toast.success("Package deleted successfully.");
+        } catch (error) {
+            console.error("Failed to delete package", error);
+            toast.error("Failed to delete package");
+        } finally {
+            setIsDeletingPackage(false);
+        }
+    };
+
     const handleEditFormChange = (event) => {
         const { name, value } = event.target;
         setEditForm((prev) => ({ ...prev, [name]: value }));
     };
+
+    const destinationBreakdown = useMemo(() => {
+        const destinationCounts = recentPackages.reduce((acc, pkg) => {
+            const destination = (pkg?.state || pkg?.city || "Unknown").trim();
+            const key = destination || "Unknown";
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
+
+        const sorted = Object.entries(destinationCounts)
+            .sort((a, b) => b[1] - a[1]);
+
+        const topEntries = sorted.slice(0, 5);
+        const othersCount = sorted.slice(5).reduce((sum, [, count]) => sum + count, 0);
+        const total = recentPackages.length || 1;
+
+        const items = topEntries.map(([name, count], index) => ({
+            name,
+            count,
+            value: Number(((count / total) * 100).toFixed(1)),
+            color: destinationPalette[index % destinationPalette.length],
+        }));
+
+        if (othersCount > 0) {
+            items.push({
+                name: "Others",
+                count: othersCount,
+                value: Number(((othersCount / total) * 100).toFixed(1)),
+                color: "#c8cfdf",
+            });
+        }
+
+        return items;
+    }, [recentPackages]);
 
     const typeChartData = typeBreakdown.map((item) => ({
         name: item.name,
@@ -234,7 +293,7 @@ const Dashboard = () => {
                             <CreateNewPackage/>
                         </div>
                         <div className="col-span-2 h-full">
-                            <BookingsOverview />
+                            <BookingsOverview packages={recentPackages} />
                         </div>
                     </div>
                     <div className="mt-4 newsection">
@@ -275,7 +334,7 @@ const Dashboard = () => {
                                                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                                                         {item.name}
                                                     </div>
-                                                    <span className="font-semibold text-slate-700">{item.value}%</span>
+                                                    <span className="font-semibold text-slate-700">{item.count} ({item.value}%)</span>
                                                 </li>
                                             ))}
                                         </ul>
@@ -332,16 +391,18 @@ const Dashboard = () => {
                             <button
                                 type="button"
                                 onClick={() => setSelectedDeletePackage(null)}
+                                disabled={isDeletingPackage}
                                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setSelectedDeletePackage(null)}
-                                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                                onClick={confirmDeletePackage}
+                                disabled={isDeletingPackage}
+                                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
                             >
-                                Delete
+                                {isDeletingPackage ? "Deleting..." : "Delete"}
                             </button>
                         </div>
                     </div>
@@ -433,3 +494,7 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
+
+

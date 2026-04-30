@@ -15,7 +15,7 @@ const DashboardStatsCard = ({
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-500/70 via-blue-500/50 to-emerald-500/70 opacity-70" />
 
       <div className="flex items-center justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           {isLoading ? (
             <div className="animate-pulse">
               <div className="h-3 w-24 rounded bg-slate-200" />
@@ -41,7 +41,7 @@ const DashboardStatsCard = ({
         </div>
 
         <span
-          className={`inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-slate-200/70 ${iconBgClass} ${iconColorClass} shadow-sm`}
+          className={`ml-2 inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-slate-200/70 ${iconBgClass} ${iconColorClass} shadow-sm`}
         >
           <Icon size={24} />
         </span>
