@@ -18,6 +18,7 @@ import {
 import Select from "react-select";
 import ItineraryStep from "./ItineraryStep";
 import ReviewStep from "./ReviewStep";
+import { fetchHotels } from "../api";
 
 const creationOptions = [
   {
@@ -47,15 +48,6 @@ const nightsOptions = Array.from({ length: 20 }, (_, idx) => ({
   value: idx + 1,
   label: `${idx + 1} Night${idx + 1 > 1 ? "s" : ""}`,
 }));
-
-const aiStates = ["Goa", "Kerala", "Rajasthan", "Himachal Pradesh", "Uttarakhand"];
-const aiCitiesByState = {
-  Goa: ["Goa"],
-  Kerala: ["Kochi", "Munnar", "Alleppey"],
-  Rajasthan: ["Jaipur", "Udaipur", "Jodhpur"],
-  "Himachal Pradesh": ["Manali", "Shimla"],
-  Uttarakhand: ["Rishikesh", "Nainital"],
-};
 
 const aiInitialDays = [
   {
@@ -163,6 +155,7 @@ const CreateNewPackage = () => {
   const [startLocation, setStartLocation] = useState(null);
   const [endLocation, setEndLocation] = useState(null);
   const [locations, setLocations] = useState([]);
+  const [hotelLocations, setHotelLocations] = useState([]);
   const [nights, setNights] = useState(null);
   const [days, setDays] = useState(null);
   const [manualItineraryData, setManualItineraryData] = useState({ days: [], timelineItems: [] });
@@ -180,8 +173,8 @@ const CreateNewPackage = () => {
 
   const [aiForm, setAiForm] = useState({
     packageName: "Goa Beach Escape",
-    state: "Goa",
-    city: "Goa",
+    state: "",
+    city: "",
     nights: 2,
   });
   const [aiDays, setAiDays] = useState(aiInitialDays);
@@ -196,7 +189,24 @@ const CreateNewPackage = () => {
     [filename]
   );
 
-  const aiCityOptions = useMemo(() => aiCitiesByState[aiForm.state] || [], [aiForm.state]);
+  const aiStates = useMemo(
+    () =>
+      [...new Set(hotelLocations.map((hotel) => hotel.state).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b)),
+    [hotelLocations]
+  );
+  const aiCityOptions = useMemo(() => {
+    if (!aiForm.state) return [];
+
+    return [...new Set(
+      hotelLocations
+        .filter((hotel) => hotel.state === aiForm.state)
+        .map((hotel) => hotel.city)
+        .filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b));
+  }, [hotelLocations, aiForm.state]);
+  const selectedAiState = aiStates.includes(aiForm.state) ? aiForm.state : "";
+  const selectedAiCity = aiCityOptions.includes(aiForm.city) ? aiForm.city : "";
   const destinationOptions = useMemo(
     () =>
       [...new Set(locations.map((location) => location.state).filter(Boolean))]
@@ -352,6 +362,20 @@ const CreateNewPackage = () => {
     };
 
     fetchLocations();
+  }, []);
+
+  useEffect(() => {
+    const fetchHotelLocations = async () => {
+      try {
+        const hotels = await fetchHotels();
+        setHotelLocations(Array.isArray(hotels) ? hotels : []);
+      } catch (error) {
+        console.error("Failed to fetch hotels", error);
+        setHotelLocations([]);
+      }
+    };
+
+    fetchHotelLocations();
   }, []);
 
   useEffect(() => {
@@ -774,14 +798,20 @@ const CreateNewPackage = () => {
                     <div>
                       <label className="mb-1.5 block text-sm font-semibold text-slate-700">State</label>
                       <select
-                        value={aiForm.state}
+                        value={selectedAiState}
                         onChange={(e) => {
                           const nextState = e.target.value;
-                          const fallbackCity = (aiCitiesByState[nextState] || [""])[0];
+                          const fallbackCity = [...new Set(
+                            hotelLocations
+                              .filter((hotel) => hotel.state === nextState)
+                              .map((hotel) => hotel.city)
+                              .filter(Boolean)
+                          )].sort((a, b) => a.localeCompare(b))[0] || "";
                           setAiForm((prev) => ({ ...prev, state: nextState, city: fallbackCity }));
                         }}
                         className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
                       >
+                        <option value="">Select State</option>
                         {aiStates.map((state) => (
                           <option key={state} value={state}>
                             {state}
@@ -792,10 +822,11 @@ const CreateNewPackage = () => {
                     <div>
                       <label className="mb-1.5 block text-sm font-semibold text-slate-700">City</label>
                       <select
-                        value={aiForm.city}
+                        value={selectedAiCity}
                         onChange={(e) => handleAiFieldChange("city", e.target.value)}
                         className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
                       >
+                        <option value="">Select City</option>
                         {aiCityOptions.map((city) => (
                           <option key={city} value={city}>
                             {city}
