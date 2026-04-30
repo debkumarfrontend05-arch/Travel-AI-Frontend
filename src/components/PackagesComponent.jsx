@@ -18,6 +18,7 @@ import {
   X,
   Trash2,
 } from "lucide-react";
+import API_URL from "../api";
 
 const packageRows = [
   {
@@ -195,8 +196,37 @@ const packageRows = [
   },
 ];
 
+const fallbackImage =
+  "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?auto=format&fit=crop&w=900&q=80";
+const getRandomRating = () => Number((4 + Math.random()).toFixed(1));
+
+const resolvePackageImage = (pkg) => {
+  const rawImage =
+    pkg?.coverImage?.url ||
+    pkg?.coverImage?.path ||
+    pkg?.coverImage?.filename ||
+    pkg?.coverImage ||
+    pkg?.image?.url ||
+    pkg?.image?.path ||
+    pkg?.image?.filename ||
+    pkg?.image ||
+    "";
+
+  if (!rawImage || typeof rawImage !== "string") return fallbackImage;
+  if (/^https?:\/\//i.test(rawImage)) return rawImage;
+
+  const normalized = rawImage.replace(/\\/g, "/");
+  const uploadPath = normalized.startsWith("/")
+    ? normalized
+    : normalized.startsWith("uploads/")
+      ? `/${normalized}`
+      : `/uploads/${normalized}`;
+
+  return `${API_URL.replace(/\/api\/?$/, "")}${uploadPath}`;
+};
+
 const PackagesComponent = () => {
-  const [packages, setPackages] = useState(packageRows);
+  const [packages, setPackages] = useState([]);
   const [isCardsLoading, setIsCardsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [destinationFilter, setDestinationFilter] = useState("All Destinations");
@@ -211,8 +241,68 @@ const PackagesComponent = () => {
   const pageSize = viewMode === "grid" ? 8 : 5;
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsCardsLoading(false), 700);
-    return () => clearTimeout(timer);
+    const loadPackages = async () => {
+      setIsCardsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/packages`);
+        const data = await response.json();
+        const rows = Array.isArray(data) ? data : [];
+
+        const mappedRows = rows.map((pkg, index) => {
+          const days = Number(pkg?.duration?.days || 0);
+          const nights = Number(pkg?.duration?.nights || Math.max(days - 1, 0));
+          const destination = pkg?.state || pkg?.city || "Unknown";
+          const locations = Array.from(
+            new Set(
+              (pkg?.itinerary || [])
+                .map((day) => day?.title)
+                .filter(Boolean)
+                .slice(0, 3)
+            )
+          );
+          const updatedAt = pkg?.updatedAt || pkg?.createdAt;
+
+          return {
+            id: pkg?._id || pkg?.id || `pkg-${index}`,
+            name: pkg?.title || "Untitled Package",
+            locations: locations.length ? locations : [pkg?.city || destination],
+            destination,
+            durationDays: days,
+            durationText: `${days}D / ${nights}N`,
+            pax: pkg?.pax || "2-10 Passengers",
+            rating: getRandomRating(),
+            reviews: Number(pkg?.reviews || 0),
+            price: Number(pkg?.price || 0),
+            source:
+              pkg?.createdVia === "ai"
+                ? "AI Generated"
+                : pkg?.createdVia === "md"
+                  ? "MD Prompt"
+                  : "Manual",
+            type: pkg?.type || pkg?.packageType || "General",
+            status: pkg?.status || "Draft",
+            updated: updatedAt
+              ? `Updated ${new Date(updatedAt).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}`
+              : "Updated -",
+            updatedTs: updatedAt ? new Date(updatedAt).getTime() : 0,
+            image: resolvePackageImage(pkg),
+          };
+        });
+
+        setPackages(mappedRows);
+      } catch (error) {
+        console.error("Failed to load packages", error);
+        setPackages(packageRows);
+      } finally {
+        setIsCardsLoading(false);
+      }
+    };
+
+    loadPackages();
   }, []);
 
   const destinationOptions = useMemo(() => {
@@ -255,7 +345,7 @@ const PackagesComponent = () => {
       if (sortBy === "Price: Low to High") return a.price - b.price;
       if (sortBy === "Price: High to Low") return b.price - a.price;
       if (sortBy === "Rating") return b.rating - a.rating;
-      return b.id - a.id;
+      return (b.updatedTs || 0) - (a.updatedTs || 0);
     });
   }, [packages, search, destinationFilter, durationFilter, typeFilter, statusFilter, sortBy]);
 
