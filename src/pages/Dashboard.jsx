@@ -504,7 +504,7 @@ const Dashboard = () => {
                 </div>
             ) : null}
             {selectedEditPackage ? (
-                <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4">
+                <div data-lenis-prevent className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4">
                     <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-xl">
                         <h4 className="text-lg font-semibold text-slate-900">Edit Package</h4>
                         <p className="mt-1 text-sm text-slate-500">Update package information for dashboard listing.</p>
@@ -579,7 +579,7 @@ const Dashboard = () => {
                         <div className="mt-4 rounded-xl border border-slate-200 p-3">
                             <p className="text-sm font-semibold text-slate-900">Day-wise Itinerary</p>
                             {selectedEditItinerary.length ? (
-                                <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+                                <div data-lenis-prevent className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
                                     {selectedEditItinerary.map((day, idx) => (
                                         <div key={`${day?.day || idx}-${day?.title || "day"}`} className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
                                             <p className="text-xs font-semibold text-violet-700">
