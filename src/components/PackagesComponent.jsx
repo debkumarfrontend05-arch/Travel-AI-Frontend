@@ -802,8 +802,8 @@ const PackagesComponent = () => {
 
               <div className="mt-4">
                 <h4 className="text-sm font-semibold text-slate-900">Day-wise Itinerary</h4>
-                <div className="mt-3 space-y-3">
-                  {getItinerary(selectedPackage).map((item, index, arr) => (
+                  <div className="mt-3 space-y-3">
+                    {getItinerary(selectedPackage).map((item, index, arr) => (
                     <div key={`${selectedPackage.id}-${item.day}`} className="relative pl-10">
                       {index < arr.length - 1 ? (
                         <span className="absolute left-[15px] top-7 h-[calc(100%+10px)] w-px bg-slate-200" />
@@ -813,11 +813,9 @@ const PackagesComponent = () => {
                       </span>
 
                       <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">
-                            Day {item.day}
-                          </p>
-                        </div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">
+                          Day {item.day}
+                        </p>
                         <h5 className="mt-1 text-sm font-semibold text-slate-900">{item.title}</h5>
                         <ul className="mt-2 space-y-1.5 text-xs text-slate-600">
                           {item.activities.map((activity) => (
@@ -829,8 +827,8 @@ const PackagesComponent = () => {
                         </ul>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
               </div>
             </div>
           </div>
