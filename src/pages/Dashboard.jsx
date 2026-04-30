@@ -134,7 +134,7 @@ const Dashboard = () => {
         loadRecentPackages();
     }, [loadRecentPackages]);
 
-    
+
 
     const mappedRecentPackages = useMemo(() => {
         return recentPackages.map((pkg) => {
@@ -403,71 +403,71 @@ const Dashboard = () => {
                             </div>
                             <div className="col-span-4 h-full">
                                 <div className="grid h-full gap-4 md:grid-cols-1">
-                                <section className="rounded-2xl border border-slate-200 bg-white p-5">
-                                    <h4 className="text-3xl font-semibold text-slate-900">Top Destinations</h4>
-                                    <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center xl:flex-col xl:items-start">
-                                        <div className="relative mx-auto h-44 w-44">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <Pie data={destinationBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={82} paddingAngle={2}>
-                                                        {destinationBreakdown.map((item) => (
-                                                            <Cell key={item.name} fill={item.color} />
-                                                        ))}
-                                                    </Pie>
-                                                    <Tooltip formatter={(value) => [`${value}%`, "Share"]} />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                            <div className="pointer-events-none absolute left-1/2 top-1/2 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-center">
-                                                <p className="text-3xl font-semibold text-slate-900">{recentPackages.length}</p>
-                                                <p className="text-sm text-slate-500">Total</p>
+                                    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+                                        <h4 className="text-3xl font-semibold text-slate-900">Top Destinations</h4>
+                                        <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center xl:flex-col xl:items-start">
+                                            <div className="relative mx-auto h-44 w-44">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <PieChart>
+                                                        <Pie data={destinationBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={82} paddingAngle={2}>
+                                                            {destinationBreakdown.map((item) => (
+                                                                <Cell key={item.name} fill={item.color} />
+                                                            ))}
+                                                        </Pie>
+                                                        <Tooltip formatter={(value) => [`${value}%`, "Share"]} />
+                                                    </PieChart>
+                                                </ResponsiveContainer>
+                                                <div className="pointer-events-none absolute left-1/2 top-1/2 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-center">
+                                                    <p className="text-3xl font-semibold text-slate-900">{recentPackages.length}</p>
+                                                    <p className="text-sm text-slate-500">Total</p>
+                                                </div>
                                             </div>
+                                            <ul className="w-full space-y-2">
+                                                {destinationBreakdown.map((item) => (
+                                                    <li key={item.name} className="flex items-center justify-between text-sm">
+                                                        <div className="flex items-center gap-2 text-slate-600">
+                                                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                                                            {item.name}
+                                                        </div>
+                                                        <span className="font-semibold text-slate-700">{item.count} ({item.value}%)</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
                                         </div>
-                                        <ul className="w-full space-y-2">
-                                            {destinationBreakdown.map((item) => (
-                                                <li key={item.name} className="flex items-center justify-between text-sm">
-                                                    <div className="flex items-center gap-2 text-slate-600">
-                                                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                                                        {item.name}
-                                                    </div>
-                                                    <span className="font-semibold text-slate-700">{item.count} ({item.value}%)</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </section>
+                                    </section>
 
-                                <section className="rounded-2xl border border-slate-200 bg-white p-5">
-                                    <h4 className="text-3xl font-semibold text-slate-900">Package by Type</h4>
-                                    <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center xl:flex-col xl:items-start">
-                                        <div className="relative mx-auto h-44 w-44">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <Pie data={typeChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={82} paddingAngle={2}>
-                                                        {typeChartData.map((item) => (
-                                                            <Cell key={item.name} fill={item.color} />
-                                                        ))}
-                                                    </Pie>
-                                                    <Tooltip formatter={(value) => [`${value}%`, "Share"]} />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                            <div className="pointer-events-none absolute left-1/2 top-1/2 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-center">
-                                                <p className="text-3xl font-semibold text-slate-900">{recentPackages.length}</p>
-                                                <p className="text-sm text-slate-500">Total</p>
+                                    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+                                        <h4 className="text-3xl font-semibold text-slate-900">Package by Type</h4>
+                                        <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center xl:flex-col xl:items-start">
+                                            <div className="relative mx-auto h-44 w-44">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <PieChart>
+                                                        <Pie data={typeChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={82} paddingAngle={2}>
+                                                            {typeChartData.map((item) => (
+                                                                <Cell key={item.name} fill={item.color} />
+                                                            ))}
+                                                        </Pie>
+                                                        <Tooltip formatter={(value) => [`${value}%`, "Share"]} />
+                                                    </PieChart>
+                                                </ResponsiveContainer>
+                                                <div className="pointer-events-none absolute left-1/2 top-1/2 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-center">
+                                                    <p className="text-3xl font-semibold text-slate-900">{recentPackages.length}</p>
+                                                    <p className="text-sm text-slate-500">Total</p>
+                                                </div>
                                             </div>
+                                            <ul className="w-full space-y-3">
+                                                {typeBreakdown.map((item) => (
+                                                    <li key={item.name} className="flex items-center justify-between text-sm">
+                                                        <div className="flex items-center gap-2 text-slate-600">
+                                                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                                                            {item.name}
+                                                        </div>
+                                                        <span className="font-semibold text-slate-700">{item.count} ({item.percentText})</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
                                         </div>
-                                        <ul className="w-full space-y-3">
-                                            {typeBreakdown.map((item) => (
-                                                <li key={item.name} className="flex items-center justify-between text-sm">
-                                                    <div className="flex items-center gap-2 text-slate-600">
-                                                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                                                        {item.name}
-                                                    </div>
-                                                    <span className="font-semibold text-slate-700">{item.count} ({item.percentText})</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </section>
+                                    </section>
                                 </div>
                             </div>
                         </div>
@@ -526,8 +526,8 @@ const Dashboard = () => {
                                     type="text"
                                     name="destination"
                                     value={editForm.destination}
-                                    onChange={handleEditFormChange}
-                                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                                    disabled
+                                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 outline-none disabled:cursor-not-allowed"
                                 />
                             </label>
                             <label className="grid gap-1 text-sm text-slate-700">
@@ -536,8 +536,8 @@ const Dashboard = () => {
                                     type="text"
                                     name="duration"
                                     value={editForm.duration}
-                                    onChange={handleEditFormChange}
-                                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                                    disabled
+                                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 outline-none disabled:cursor-not-allowed"
                                 />
                             </label>
                             <label className="grid gap-1 text-sm text-slate-700">
