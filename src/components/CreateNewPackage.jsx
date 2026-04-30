@@ -168,15 +168,23 @@ const CreateNewPackage = () => {
   const [manualItineraryData, setManualItineraryData] = useState({ days: [], timelineItems: [] });
 
   const resetField = () => {
-    console.log('Clicked');
-    setFilename(null);
-    setDestination(null);
-    setStartLocation(null);
-    setEndLocation(null);
-    setNights(null);
-    setDays(null);
-    setFilename(null);
-  }
+    const nextState = aiStateOptions[0] || aiStates[0];
+    const liveCities = [...new Set(
+      locations
+        .filter((location) => location.state === nextState)
+        .map((location) => location.city)
+        .filter(Boolean)
+    )];
+    const nextCity = liveCities[0] || aiCitiesByState[nextState]?.[0] || "";
+    setAiForm({
+      packageName: "",
+      state: nextState,
+      city: nextCity,
+      nights: 2,
+    });
+    setAiDays(aiInitialDays);
+    setAiItinerary([]);
+  };
 
   const [aiForm, setAiForm] = useState({
     packageName: "Goa Beach Escape",
@@ -185,6 +193,9 @@ const CreateNewPackage = () => {
     nights: 2,
   });
   const [aiDays, setAiDays] = useState(aiInitialDays);
+  const [aiItinerary, setAiItinerary] = useState([]);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [isAiSaving, setIsAiSaving] = useState(false);
   const [editingActivity, setEditingActivity] = useState({
     dayId: null,
     activityId: null,
@@ -197,6 +208,20 @@ const CreateNewPackage = () => {
   );
 
   const aiCityOptions = useMemo(() => aiCitiesByState[aiForm.state] || [], [aiForm.state]);
+  const aiStateOptions = useMemo(() => {
+    const liveStates = [...new Set(locations.map((location) => location.state).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b));
+    return liveStates.length ? liveStates : aiStates;
+  }, [locations]);
+  const aiCityOptionsLive = useMemo(() => {
+    const liveCities = [...new Set(
+      locations
+        .filter((location) => location.state === aiForm.state)
+        .map((location) => location.city)
+        .filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b));
+    return liveCities.length ? liveCities : aiCityOptions;
+  }, [locations, aiForm.state, aiCityOptions]);
   const destinationOptions = useMemo(
     () =>
       [...new Set(locations.map((location) => location.state).filter(Boolean))]
@@ -368,7 +393,147 @@ const CreateNewPackage = () => {
     if (!isEndValid) setEndLocation(null);
   }, [destination, cityOptions, startLocation, endLocation]);
 
+  useEffect(() => {
+    if (!locations.length) return;
+    const validState = aiStateOptions.includes(aiForm.state);
+    const nextState = validState ? aiForm.state : aiStateOptions[0];
+    const cities = [...new Set(
+      locations
+        .filter((location) => location.state === nextState)
+        .map((location) => location.city)
+        .filter(Boolean)
+    )];
+    const validCity = cities.includes(aiForm.city);
+    const nextCity = validCity ? aiForm.city : cities[0] || "";
+    if (!validState || !validCity) {
+      setAiForm((prev) => ({ ...prev, state: nextState, city: nextCity }));
+    }
+  }, [locations, aiStateOptions, aiForm.state, aiForm.city]);
+
   const aiDaysCount = Math.max(1, Number(aiForm.nights || 1) + 1);
+
+  const toAiCardData = (itinerary = []) =>
+    itinerary.map((day, index) => {
+      const activities = [];
+      if (day?.transfer) activities.push({ id: `d${index + 1}-transfer`, icon: Plane, title: day.transfer, subtitle: "Transfer" });
+      if (day?.hotel) activities.push({ id: `d${index + 1}-hotel`, icon: Building2, title: day.hotel, subtitle: "Hotel" });
+      (Array.isArray(day?.sightseeing) ? day.sightseeing : []).forEach((item, idx) => {
+        activities.push({ id: `d${index + 1}-s-${idx}`, icon: MapPin, title: item, subtitle: "Sightseeing" });
+      });
+      (Array.isArray(day?.meals) ? day.meals : []).forEach((item, idx) => {
+        activities.push({ id: `d${index + 1}-m-${idx}`, icon: CalendarDays, title: item, subtitle: "Meal" });
+      });
+      if (activities.length === 0) {
+        activities.push({
+          id: `d${index + 1}-default`,
+          icon: CalendarDays,
+          title: "AI suggestion",
+          subtitle: "AI suggestion",
+        });
+      }
+      return {
+        id: Number(day?.day) || index + 1,
+        title: `Day ${Number(day?.day) || index + 1} plan`,
+        activities,
+      };
+    });
+
+  const handleGenerateAiItinerary = async () => {
+    if (!aiForm.packageName.trim()) {
+      alert("Please enter package name.");
+      return;
+    }
+    setIsAiGenerating(true);
+    try {
+      const response = await fetch(`${API_URL}/packages/generate-ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: aiForm.packageName.trim(),
+          state: aiForm.state,
+          city: aiForm.city,
+          days: aiDaysCount,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.message || "Failed to generate itinerary");
+      }
+
+      const data = await response.json();
+      const itinerary = Array.isArray(data?.itinerary) ? data.itinerary : [];
+      setAiItinerary(itinerary);
+      setAiDays(toAiCardData(itinerary));
+      if (data?.aiFallback) {
+        alert("AI provider failed, fallback itinerary generated from available master data.");
+      }
+    } catch (error) {
+      console.error("AI itinerary generation failed:", error);
+      alert(error?.message || "Failed to generate itinerary");
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const handleSaveAiMarkdown = async () => {
+    if (!aiItinerary.length) {
+      alert("Please generate itinerary first.");
+      return;
+    }
+    setIsAiSaving(true);
+    try {
+      const itineraryToSave = aiDays.map((day, index) => {
+        const activities = Array.isArray(day?.activities) ? day.activities : [];
+        return {
+          day: Number(day?.id) || index + 1,
+          hotel: activities.find((item) => item?.subtitle === "Hotel")?.title || "",
+          transfer: activities.find((item) => item?.subtitle === "Transfer")?.title || "",
+          sightseeing: activities.filter((item) => item?.subtitle === "Sightseeing").map((item) => item.title),
+          meals: activities.filter((item) => item?.subtitle === "Meal").map((item) => item.title),
+          activities: activities
+            .filter((item) => !["Hotel", "Transfer", "Sightseeing", "Meal"].includes(item?.subtitle))
+            .map((item) => item.title),
+          info: day?.title || "",
+        };
+      });
+
+      const response = await fetch(`${API_URL}/packages/save-markdown`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: aiForm.packageName.trim(),
+          state: aiForm.state,
+          city: aiForm.city,
+          duration: { days: aiDaysCount, nights: aiForm.nights },
+          itinerary: itineraryToSave,
+          createdVia: "ai",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.message || "Failed to save markdown");
+      }
+
+      const data = await response.json();
+      if (data?.fileUrl) {
+        const fileLink = `http://localhost:3000${data.fileUrl}`;
+        const anchor = document.createElement("a");
+        anchor.href = fileLink;
+        anchor.download = data.fileName || "itinerary.md";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+      alert("Markdown file generated successfully.");
+    } catch (error) {
+      console.error("Markdown save failed:", error);
+      alert(error?.message || "Failed to save markdown");
+    } finally {
+      setIsAiSaving(false);
+    }
+  };
 
   const buildManualItineraryPayload = (itineraryData) => {
     const dayList = itineraryData?.days || [];
@@ -777,12 +942,17 @@ const CreateNewPackage = () => {
                         value={aiForm.state}
                         onChange={(e) => {
                           const nextState = e.target.value;
-                          const fallbackCity = (aiCitiesByState[nextState] || [""])[0];
+                          const fallbackCity = [...new Set(
+                            locations
+                              .filter((location) => location.state === nextState)
+                              .map((location) => location.city)
+                              .filter(Boolean)
+                          )][0] || (aiCitiesByState[nextState] || [""])[0];
                           setAiForm((prev) => ({ ...prev, state: nextState, city: fallbackCity }));
                         }}
                         className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
                       >
-                        {aiStates.map((state) => (
+                        {aiStateOptions.map((state) => (
                           <option key={state} value={state}>
                             {state}
                           </option>
@@ -796,7 +966,7 @@ const CreateNewPackage = () => {
                         onChange={(e) => handleAiFieldChange("city", e.target.value)}
                         className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
                       >
-                        {aiCityOptions.map((city) => (
+                        {aiCityOptionsLive.map((city) => (
                           <option key={city} value={city}>
                             {city}
                           </option>
@@ -848,9 +1018,11 @@ const CreateNewPackage = () => {
                   </button>
                   <button
                     type="button"
+                    onClick={handleGenerateAiItinerary}
+                    disabled={isAiGenerating}
                     className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
                   >
-                    Generate itinerary
+                    {isAiGenerating ? "Generating..." : "Generate itinerary"}
                   </button>
                 </div>
               </div>
@@ -921,9 +1093,11 @@ const CreateNewPackage = () => {
 
                   <button
                     type="button"
+                    onClick={handleSaveAiMarkdown}
+                    disabled={isAiSaving || !aiItinerary.length}
                     className="mt-4 flex w-fit items-center justify-center gap-1.5 rounded-lg bg-green-500  px-3 py-2 text-sm font-medium text-white transition hover:bg-green-600"
                   >
-                    Save
+                    {isAiSaving ? "Saving..." : "Save"}
                     <Save size={14} />
                   </button>
                 </div>
