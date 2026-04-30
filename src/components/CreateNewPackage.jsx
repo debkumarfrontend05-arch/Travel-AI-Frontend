@@ -423,17 +423,20 @@ const CreateNewPackage = () => {
       (Array.isArray(day?.meals) ? day.meals : []).forEach((item, idx) => {
         activities.push({ id: `d${index + 1}-m-${idx}`, icon: CalendarDays, title: item, subtitle: "Meal" });
       });
+      (Array.isArray(day?.activities) ? day.activities : []).forEach((item, idx) => {
+        activities.push({ id: `d${index + 1}-a-${idx}`, icon: CalendarDays, title: item, subtitle: "Activity" });
+      });
       if (activities.length === 0) {
         activities.push({
           id: `d${index + 1}-default`,
           icon: CalendarDays,
-          title: "AI suggestion",
+          title: day?.info || "No itinerary details found for this day.",
           subtitle: "AI suggestion",
         });
       }
       return {
         id: Number(day?.day) || index + 1,
-        title: `Day ${Number(day?.day) || index + 1} plan`,
+        title: day?.info || `Day ${Number(day?.day) || index + 1} plan`,
         activities,
       };
     });
@@ -465,9 +468,6 @@ const CreateNewPackage = () => {
       const itinerary = Array.isArray(data?.itinerary) ? data.itinerary : [];
       setAiItinerary(itinerary);
       setAiDays(toAiCardData(itinerary));
-      if (data?.aiFallback) {
-        alert("AI provider failed, fallback itinerary generated from available master data.");
-      }
     } catch (error) {
       console.error("AI itinerary generation failed:", error);
       alert(error?.message || "Failed to generate itinerary");
