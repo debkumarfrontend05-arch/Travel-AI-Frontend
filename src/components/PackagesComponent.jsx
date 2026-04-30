@@ -1,20 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bell,
   CalendarDays,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Grid2X2,
-  Heart,
   List,
   MapPin,
-  MoreVertical,
   Search,
   SlidersHorizontal,
-  Sparkles,
   Star,
-  Users,
   X,
   Trash2,
 } from "lucide-react";
