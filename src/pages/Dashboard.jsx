@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Briefcase,
     Sparkles,
@@ -56,6 +56,9 @@ const Dashboard = () => {
     const [selectedDeletePackage, setSelectedDeletePackage] = useState(null);
     const [isDeletingPackage, setIsDeletingPackage] = useState(false);
     const [selectedEditPackage, setSelectedEditPackage] = useState(null);
+    const [isUpdatingPackage, setIsUpdatingPackage] = useState(false);
+    const [editImageUrl, setEditImageUrl] = useState("");
+    const [editItinerary, setEditItinerary] = useState([]);
     const [editForm, setEditForm] = useState({
         name: "",
         destination: "",
@@ -102,7 +105,7 @@ const Dashboard = () => {
                 iconColorClass: "text-emerald-600",
             },
             {
-                title: "MD Promt Generator",
+                title: "MD Prompt Generator",
                 value: String(mdCount),
                 subtitle: "of total packages",
                 change: toPercent(mdCount),
@@ -112,24 +115,24 @@ const Dashboard = () => {
             },
         ];
     }, [recentPackages]);
-    useEffect(() => {
-        const loadRecentPackages = async () => {
-            setIsStatsLoading(true);
-            try {
-                const response = await fetch(`${API_URL}/packages`);
-                const data = await response.json();
-                const rows = Array.isArray(data) ? data : [];
-                setRecentPackages(rows);
-            } catch (error) {
-                console.error("Failed to load recent packages", error);
-                setRecentPackages([]);
-            } finally {
-                setIsStatsLoading(false);
-            }
-        };
-
-        loadRecentPackages();
+    const loadRecentPackages = useCallback(async () => {
+        setIsStatsLoading(true);
+        try {
+            const response = await fetch(`${API_URL}/packages`);
+            const data = await response.json();
+            const rows = Array.isArray(data) ? data : [];
+            setRecentPackages(rows);
+        } catch (error) {
+            console.error("Failed to load recent packages", error);
+            setRecentPackages([]);
+        } finally {
+            setIsStatsLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        loadRecentPackages();
+    }, [loadRecentPackages]);
 
     
 
@@ -174,6 +177,8 @@ const Dashboard = () => {
             type: pkg?.type || "Manual",
             route: pkg?.route || "",
         });
+        setEditImageUrl(pkg?.image || "");
+        setEditItinerary(Array.isArray(pkg?.raw?.itinerary) ? pkg.raw.itinerary : []);
         setSelectedEditPackage(pkg);
     };
 
@@ -218,6 +223,96 @@ const Dashboard = () => {
     const handleEditFormChange = (event) => {
         const { name, value } = event.target;
         setEditForm((prev) => ({ ...prev, [name]: value }));
+    };
+    const selectedEditItinerary = editItinerary;
+    const parseDurationInput = (durationText) => {
+        const text = String(durationText || "").trim();
+        const compactMatch = text.match(/(\d+)\s*D\s*\/\s*(\d+)\s*N/i);
+        if (compactMatch) {
+            return { days: Number(compactMatch[1]), nights: Number(compactMatch[2]) };
+        }
+        const verboseMatch = text.match(/(\d+)\s*days?\s*\/\s*(\d+)\s*nights?/i);
+        if (verboseMatch) {
+            return { days: Number(verboseMatch[1]), nights: Number(verboseMatch[2]) };
+        }
+        return { days: 0, nights: 0 };
+    };
+    const handleEditDayTitleChange = (index, value) => {
+        setEditItinerary((prev) =>
+            prev.map((day, idx) => (idx === index ? { ...day, title: value } : day))
+        );
+    };
+    const handleEditDayActivitiesChange = (index, value) => {
+        const nextActivities = value
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line, activityIdx) => ({
+                id: `edited-${index}-${activityIdx}`,
+                type: "Information",
+                title: line,
+                detail1: line,
+                detail2: "",
+                status: "Planned",
+            }));
+
+        setEditItinerary((prev) =>
+            prev.map((day, idx) => (idx === index ? { ...day, activities: nextActivities } : day))
+        );
+    };
+    const handleUpdatePackage = async () => {
+        const packageId =
+            selectedEditPackage?.raw?._id ||
+            selectedEditPackage?.raw?.id ||
+            selectedEditPackage?.id;
+
+        if (!packageId) {
+            toast.error("Package id missing.");
+            return;
+        }
+
+        const duration = parseDurationInput(editForm.duration);
+        const baseRaw = selectedEditPackage?.raw || {};
+        const payload = {
+            ...baseRaw,
+            title: editForm.name || baseRaw.title || "Untitled Package",
+            state: editForm.destination || baseRaw.state || "",
+            city: editForm.destination || baseRaw.city || "",
+            duration: {
+                days: Number(duration.days || baseRaw?.duration?.days || 0),
+                nights: Number(duration.nights || baseRaw?.duration?.nights || 0),
+            },
+            itinerary: editItinerary,
+        };
+
+        if (editImageUrl) {
+            payload.image = editImageUrl;
+            payload.coverImage = editImageUrl;
+        }
+
+        setIsUpdatingPackage(true);
+        try {
+            const response = await fetch(`${API_URL}/packages/${packageId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to update package");
+            }
+
+            toast.success("Package updated successfully.");
+            setSelectedEditPackage(null);
+            setEditItinerary([]);
+            setEditImageUrl("");
+            await loadRecentPackages();
+        } catch (error) {
+            console.error("Failed to update package", error);
+            toast.error(error?.message || "Failed to update package");
+        } finally {
+            setIsUpdatingPackage(false);
+        }
     };
 
     const destinationBreakdown = useMemo(() => {
@@ -290,7 +385,7 @@ const Dashboard = () => {
                     </section>
                     <div className="mt-4 grid gap-4 2xl:grid-cols-6">
                         <div className="col-span-4 h-full">
-                            <CreateNewPackage/>
+                            <CreateNewPackage onPackageCreated={loadRecentPackages} />
                         </div>
                         <div className="col-span-2 h-full">
                             <BookingsOverview packages={recentPackages} />
@@ -451,7 +546,8 @@ const Dashboard = () => {
                                     name="type"
                                     value={editForm.type}
                                     onChange={handleEditFormChange}
-                                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                                    disabled
+                                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 outline-none disabled:cursor-not-allowed"
                                 >
                                     <option value="Manual">Manual</option>
                                     <option value="AI Generated">AI Generated</option>
@@ -468,6 +564,52 @@ const Dashboard = () => {
                                     className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
                                 />
                             </label>
+                            <label className="grid gap-1 text-sm text-slate-700 sm:col-span-2">
+                                Cover Image URL
+                                <input
+                                    type="text"
+                                    value={editImageUrl}
+                                    onChange={(event) => setEditImageUrl(event.target.value)}
+                                    placeholder="https://..."
+                                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                                />
+                            </label>
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-slate-200 p-3">
+                            <p className="text-sm font-semibold text-slate-900">Day-wise Itinerary</p>
+                            {selectedEditItinerary.length ? (
+                                <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+                                    {selectedEditItinerary.map((day, idx) => (
+                                        <div key={`${day?.day || idx}-${day?.title || "day"}`} className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+                                            <p className="text-xs font-semibold text-violet-700">
+                                                Day {day?.day || idx + 1}
+                                            </p>
+                                            <input
+                                                type="text"
+                                                value={day?.title || `Day ${idx + 1}`}
+                                                onChange={(event) => handleEditDayTitleChange(idx, event.target.value)}
+                                                className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm font-semibold text-slate-800 outline-none focus:border-violet-300"
+                                            />
+                                            <textarea
+                                                value={(Array.isArray(day?.activities) ? day.activities : [])
+                                                    .map((activity) =>
+                                                        typeof activity === "string"
+                                                            ? activity
+                                                            : activity?.title || activity?.detail1 || ""
+                                                    )
+                                                    .filter(Boolean)
+                                                    .join("\n")}
+                                                onChange={(event) => handleEditDayActivitiesChange(idx, event.target.value)}
+                                                placeholder="One activity per line"
+                                                className="mt-2 h-24 w-full resize-y rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-violet-300"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="mt-2 text-xs text-slate-500">No itinerary found for this package.</p>
+                            )}
                         </div>
 
                         <div className="mt-5 flex items-center justify-end gap-2">
@@ -480,10 +622,11 @@ const Dashboard = () => {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setSelectedEditPackage(null)}
-                                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+                                onClick={handleUpdatePackage}
+                                disabled={isUpdatingPackage}
+                                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-300"
                             >
-                                Update Package
+                                {isUpdatingPackage ? "Updating..." : "Update Package"}
                             </button>
                         </div>
                     </div>
@@ -494,7 +637,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-
-
 

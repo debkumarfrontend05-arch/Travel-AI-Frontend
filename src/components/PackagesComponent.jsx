@@ -783,7 +783,7 @@ const PackagesComponent = () => {
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
                   <p className="text-[11px] font-medium text-slate-500">Price</p>
-                  <p className="mt-1 text-base font-semibold text-violet-600">${selectedPackage.price.toLocaleString()}</p>
+                  <p className="mt-1 text-base font-semibold text-violet-600">₹{selectedPackage.price.toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
                   <p className="text-[11px] font-medium text-slate-500">Rating</p>

@@ -45,6 +45,9 @@ const creationOptions = [
 
 const modalSteps = ["Basic Info", "Itinerary", "Review"];
 const API_URL = "http://localhost:3000/api";
+const UNSPLASH_ACCESS_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY || "";
+const isActiveMasterRecord = (record) =>
+  String(record?.status || "").trim().toLowerCase() === "active";
 
 const nightsOptions = Array.from({ length: 20 }, (_, idx) => ({
   value: idx + 1,
@@ -144,7 +147,7 @@ const customSelectStyles = {
   menuPortal: (base) => ({ ...base, zIndex: 9999 }),
 };
 
-const CreateNewPackage = () => {
+const CreateNewPackage = ({ onPackageCreated }) => {
   const selectPortalTarget = typeof document !== "undefined" ? document.body : null;
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
@@ -384,6 +387,31 @@ const CreateNewPackage = () => {
     }
   };
 
+  const fetchDestinationCoverImage = async (destination) => {
+    const query = `${destination || "travel destination"} travel`;
+
+    if (UNSPLASH_ACCESS_KEY) {
+      try {
+        const response = await fetch(
+          `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
+            query
+          )}&orientation=landscape&per_page=1&client_id=${UNSPLASH_ACCESS_KEY}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const first = data?.results?.[0];
+          const url = first?.urls?.regular || first?.urls?.full || first?.urls?.raw;
+          if (url) return url;
+        }
+      } catch (error) {
+        console.error("Unsplash lookup failed, using fallback image URL", error);
+      }
+    }
+
+    return `https://source.unsplash.com/1600x900/?${encodeURIComponent(query)}`;
+  };
+
   const handleConfirmMDPackage = async () => {
     if (!mdParsedPackage?.itinerary?.length) {
       toast.error("Please upload and parse a valid markdown file first.");
@@ -407,6 +435,13 @@ const CreateNewPackage = () => {
 
     setIsMdSaving(true);
     try {
+      const destinationForImage =
+        mdParsedPackage.destination || mdParsedPackage.packageName || "travel";
+      const unsplashImage = await fetchDestinationCoverImage(destinationForImage);
+
+      payload.image = unsplashImage;
+      payload.coverImage = unsplashImage;
+
       const response = await fetch(`${API_URL}/packages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -418,6 +453,9 @@ const CreateNewPackage = () => {
       }
 
       toast.success("Markdown package saved successfully.");
+      if (typeof onPackageCreated === "function") {
+        onPackageCreated();
+      }
       closeMDModal();
     } catch (error) {
       console.error("Failed to save markdown package", error);
@@ -545,7 +583,8 @@ const CreateNewPackage = () => {
     const fetchHotelLocations = async () => {
       try {
         const hotels = await fetchHotels();
-        setHotelLocations(Array.isArray(hotels) ? hotels : []);
+        const activeHotels = (Array.isArray(hotels) ? hotels : []).filter(isActiveMasterRecord);
+        setHotelLocations(activeHotels);
       } catch (error) {
         console.error("Failed to fetch hotels", error);
         setHotelLocations([]);
@@ -698,6 +737,9 @@ const CreateNewPackage = () => {
       }
 
       toast.success("Package created successfully.");
+      if (typeof onPackageCreated === "function") {
+        onPackageCreated();
+      }
       closeManualModal();
       setManualPackageName("");
       setDestination(null);
@@ -768,6 +810,7 @@ const CreateNewPackage = () => {
     anchor.click();
     document.body.removeChild(anchor);
     URL.revokeObjectURL(url);
+    toast.success(".md file generated successfully.");
   };
 
   return (
@@ -1427,3 +1470,4 @@ const CreateNewPackage = () => {
 };
 
 export default CreateNewPackage;
+

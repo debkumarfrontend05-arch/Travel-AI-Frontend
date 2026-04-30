@@ -34,9 +34,6 @@ const BookingsOverview = ({ packages = [] }) => {
     <section className="h-full rounded-2xl border border-slate-200 bg-white p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-2xl font-semibold text-slate-900">Month-wise Package Creation</h3>
-        <div className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600">
-          This Year
-        </div>
       </div>
 
       <div className="relative mt-5 h-[210px] rounded-xl bg-slate-50/60 p-4">

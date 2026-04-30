@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BedDouble,
@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { fetchHotels, fetchTransfers, fetchMeals, fetchSightseeing } from "../api";
 import toast from "react-hot-toast";
+const isActiveMasterRecord = (record) =>
+  String(record?.status || "").trim().toLowerCase() === "active";
 
 const initialDays = [
   { id: 1, day: "Day 1", title: "Arrival in Bangkok", icon: MapPinned },
@@ -101,7 +103,7 @@ const defaultForms = {
     notes: "",
   },
   Meal: { mealId: "", mealName: "", mealType: "Dinner", restaurant: "", cuisine: "", time: "19:30", notes: "" },
-  Sightseeing: { sightseeingId: "", sightseeingName: "", place: "", timing: "Afternoon", duration: "Half Day Tour", notes: "" },
+  Sightseeing: { sightseeingId: "", sightseeingName: "", place: "", timing: "Afternoon", duration: "Half Day Tour", time: "16:00", notes: "" },
   Information: { infoType: "General Note", note: "" },
 };
 
@@ -154,6 +156,7 @@ const formFromItem = (item) => {
       place: item.detail1 || "",
       timing: "Afternoon",
       duration: item.detail2 || "",
+      time: item.time || "16:00",
       notes: "",
     };
   }
@@ -175,6 +178,23 @@ const normalizeTime = (timeValue) => {
 };
 
 const getTypeMeta = (type) => iconByType[type] || iconByType.Information;
+const getMealSlot = (item) => {
+  const normalizedMealType = String(item?.mealType || "").trim().toLowerCase();
+  const normalizedDetail = String(item?.detail2 || "").trim().toLowerCase();
+  const source = normalizedMealType || normalizedDetail;
+
+  if (source.includes("breakfast")) return "Breakfast";
+  if (source.includes("lunch")) return "Lunch";
+  if (source.includes("dinner")) return "Dinner";
+  return "Other";
+};
+const getMealTimeFromType = (mealType) => {
+  const normalized = String(mealType || "").trim().toLowerCase();
+  if (normalized.includes("breakfast")) return "09:30";
+  if (normalized.includes("lunch")) return "13:30";
+  if (normalized.includes("dinner")) return "20:30";
+  return "20:30";
+};
 
 const buildItemFromForm = (panelType, formState, selectedDay) => {
   if (panelType === "Hotel") {
@@ -210,13 +230,15 @@ const buildItemFromForm = (panelType, formState, selectedDay) => {
   }
 
   if (panelType === "Meal") {
+    const mealTime = formState.time || getMealTimeFromType(formState.mealType);
     return {
       id: `item-${Date.now()}`,
-      time: formState.time || "19:30",
+      time: mealTime,
       type: "Meal",
       title: "Meal",
       detail1: formState.restaurant || "Restaurant pending",
       detail2: formState.cuisine || formState.mealType,
+      mealType: formState.mealType || "",
       status: "Manual",
       dayId: selectedDay.id,
     };
@@ -225,7 +247,7 @@ const buildItemFromForm = (panelType, formState, selectedDay) => {
   if (panelType === "Sightseeing") {
     return {
       id: `item-${Date.now()}`,
-      time: "16:00",
+      time: formState.time || "16:00",
       type: "Sightseeing",
       title: "Sightseeing",
       detail1: formState.place || "Place pending",
@@ -252,12 +274,18 @@ const ItemRow = ({ item, onEdit, onDelete }) => {
   const ItemIcon = typeMeta.icon;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const itemMenuRef = useRef(null);
+  const itemMenuButtonRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     if (!isMenuOpen) return undefined;
 
     const handleOutsideClick = (event) => {
-      if (itemMenuRef.current && !itemMenuRef.current.contains(event.target)) {
+      const clickedInsideTrigger =
+        itemMenuButtonRef.current && itemMenuButtonRef.current.contains(event.target);
+      const clickedInsideMenu =
+        itemMenuRef.current && itemMenuRef.current.contains(event.target);
+      if (!clickedInsideTrigger && !clickedInsideMenu) {
         setIsMenuOpen(false);
       }
     };
@@ -299,41 +327,62 @@ const ItemRow = ({ item, onEdit, onDelete }) => {
             </span>
             <div ref={itemMenuRef} className="relative">
               <button
+                ref={itemMenuButtonRef}
                 type="button"
-                onClick={() => setIsMenuOpen((prev) => !prev)}
+                onClick={() => {
+                  if (itemMenuButtonRef.current) {
+                    const rect = itemMenuButtonRef.current.getBoundingClientRect();
+                    setMenuPosition({
+                      top: Math.max(8, rect.top - 6),
+                      left: rect.right - 128,
+                    });
+                  }
+                  setIsMenuOpen((prev) => !prev);
+                }}
                 className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-violet-600"
                 title="Item actions"
               >
                 <EllipsisVertical size={16} />
               </button>
-              {isMenuOpen ? (
-                <div className="absolute bottom-full right-0 z-50 mb-1 w-32 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onEdit(item);
-                      setIsMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-violet-50"
-                  >
-                    <Pencil size={14} /> Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onDelete(item.id);
-                      setIsMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-rose-600 hover:bg-rose-50"
-                  >
-                    <Trash2 size={14} /> Delete
-                  </button>
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
       </div>
+      {isMenuOpen
+        ? createPortal(
+          <div
+            ref={itemMenuRef}
+            className="fixed z-[90] w-32 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+            style={{
+              top: menuPosition.top,
+              left: menuPosition.left,
+              transform: "translateY(-100%)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                onEdit(item);
+                setIsMenuOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-violet-50"
+            >
+              <Pencil size={14} /> Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onDelete(item.id);
+                setIsMenuOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-rose-600 hover:bg-rose-50"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          </div>,
+          document.body
+        )
+        : null}
     </div>
   );
 };
@@ -551,6 +600,7 @@ const RightDrawer = ({
                     mealName: selectedMeal.name || "",
                     restaurant: selectedMeal.name || "",
                     mealType: selectedMeal.mealTime || "Dinner",
+                    time: getMealTimeFromType(selectedMeal.mealTime || "Dinner"),
                     cuisine: selectedMeal.cuisine || "",
                   }));
                 }}
@@ -588,6 +638,7 @@ const RightDrawer = ({
                       sightseeingName: "",
                       place: "",
                       duration: "",
+                      time: prev.time || "16:00",
                     }));
                     return;
                   }
@@ -597,6 +648,7 @@ const RightDrawer = ({
                     sightseeingName: selectedSightseeing.name || "",
                     place: selectedSightseeing.name || "",
                     duration: selectedSightseeing.duration || "",
+                    time: prev.time || "16:00",
                   }));
                 }}
               >
@@ -613,6 +665,14 @@ const RightDrawer = ({
             </DrawerField>
             <DrawerField label="Duration">
               <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" value={formState.duration} readOnly placeholder="Half Day Tour" />
+            </DrawerField>
+            <DrawerField label="Time">
+              <input
+                type="time"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.time || "16:00"}
+                onChange={(e) => setValue("time", e.target.value)}
+              />
             </DrawerField>
           </>
         ) : null}
@@ -679,6 +739,18 @@ const ItineraryStep = ({
       (hotel) => (hotel?.state || "").trim().toLowerCase() === normalizedSelectedState
     );
   }, [hotelOptions, selectedState]);
+  const mealTimeSummary = useMemo(() => {
+    return sortedItems
+      .filter((item) => item.type === "Meal")
+      .reduce(
+        (acc, item) => {
+          const slot = getMealSlot(item);
+          acc[slot] += 1;
+          return acc;
+        },
+        { Breakfast: 0, Lunch: 0, Dinner: 0, Other: 0 }
+      );
+  }, [sortedItems]);
 
   useEffect(() => {
     const loadMasterData = async () => {
@@ -689,10 +761,10 @@ const ItineraryStep = ({
           fetchMeals(),
           fetchSightseeing(),
         ]);
-        setHotelOptions(Array.isArray(hotelsData) ? hotelsData : []);
-        setTransferOptions(Array.isArray(transfersData) ? transfersData : []);
-        setMealOptions(Array.isArray(mealsData) ? mealsData : []);
-        setSightseeingOptions(Array.isArray(sightseeingData) ? sightseeingData : []);
+        setHotelOptions((Array.isArray(hotelsData) ? hotelsData : []).filter(isActiveMasterRecord));
+        setTransferOptions((Array.isArray(transfersData) ? transfersData : []).filter(isActiveMasterRecord));
+        setMealOptions((Array.isArray(mealsData) ? mealsData : []).filter(isActiveMasterRecord));
+        setSightseeingOptions((Array.isArray(sightseeingData) ? sightseeingData : []).filter(isActiveMasterRecord));
       } catch (error) {
         console.error("Error loading master data for itinerary:", error);
         setHotelOptions([]);
@@ -766,6 +838,7 @@ const ItineraryStep = ({
       initialState.mealType = firstMeal.mealTime || "Dinner";
       initialState.restaurant = firstMeal.name || "";
       initialState.cuisine = firstMeal.cuisine || "";
+      initialState.time = getMealTimeFromType(firstMeal.mealTime || "Dinner");
     }
     if (panelType === "Sightseeing" && sightseeingOptions.length > 0) {
       const firstSightseeing = sightseeingOptions[0];
@@ -773,6 +846,7 @@ const ItineraryStep = ({
       initialState.sightseeingName = firstSightseeing.name || "";
       initialState.place = firstSightseeing.name || "";
       initialState.duration = firstSightseeing.duration || "";
+      initialState.time = "16:00";
     }
     setFormState(initialState);
     setEditingItemId("");
@@ -1017,6 +1091,12 @@ const ItineraryStep = ({
                   <Soup size={14} />
                 </span>
                 <p>{sortedItems.filter((item) => item.type === "Meal").length} Meal</p>
+              </div>
+              <div className="pl-8 text-xs text-slate-500">
+                <p>
+                  Breakfast: {mealTimeSummary.Breakfast} | Lunch: {mealTimeSummary.Lunch} | Dinner: {mealTimeSummary.Dinner}
+                  {mealTimeSummary.Other > 0 ? ` | Other: ${mealTimeSummary.Other}` : ""}
+                </p>
               </div>
             </div>
           </aside>
