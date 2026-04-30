@@ -56,6 +56,31 @@ const statsCards = [
 ];
 
 const fallbackImage = "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?auto=format&fit=crop&w=200&q=80";
+const resolvePackageImage = (pkg) => {
+    const rawImage =
+        pkg?.coverImage?.url ||
+        pkg?.coverImage?.path ||
+        pkg?.coverImage?.filename ||
+        pkg?.coverImage ||
+        pkg?.image?.url ||
+        pkg?.image?.path ||
+        pkg?.image?.filename ||
+        pkg?.image ||
+        "";
+
+    if (!rawImage || typeof rawImage !== "string") return fallbackImage;
+
+    if (/^https?:\/\//i.test(rawImage)) return rawImage;
+
+    const normalized = rawImage.replace(/\\/g, "/");
+    const uploadPath = normalized.startsWith("/")
+        ? normalized
+        : normalized.startsWith("uploads/")
+            ? `/${normalized}`
+            : `/uploads/${normalized}`;
+
+    return `${API_URL.replace(/\/api\/?$/, "")}${uploadPath}`;
+};
 
 const destinationBreakdown = [
     { name: "Thailand", value: 35, color: "#6d5efc" },
@@ -144,7 +169,7 @@ const Dashboard = () => {
                 type: typeLabel,
                 bookings: pkg?.bookingsCount ?? 0,
                 updated: updatedDate ? new Date(updatedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-",
-                image: pkg?.coverImage || fallbackImage,
+                image: resolvePackageImage(pkg),
                 raw: pkg,
             };
         });

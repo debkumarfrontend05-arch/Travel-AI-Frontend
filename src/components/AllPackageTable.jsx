@@ -2,6 +2,8 @@ import { ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+const fallbackPackageImage = "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?auto=format&fit=crop&w=200&q=80";
+
 const AllPackageTable = ({ recentPackages, onEditPackage, onDeletePackage, isLoading = false }) => {
     const navigate = useNavigate();
     const [openMenuId, setOpenMenuId] = useState(null);
@@ -98,7 +100,15 @@ const AllPackageTable = ({ recentPackages, onEditPackage, onDeletePackage, isLoa
                                 <tr key={pkg.id || pkg.name} className="border-t border-slate-100">
                                     <td className="px-5 py-3">
                                         <div className="flex items-center gap-3">
-                                            <img src={pkg.image} alt={pkg.name} className="h-10 w-10 rounded-lg object-cover" />
+                                            <img
+                                                src={pkg.image}
+                                                alt={pkg.name}
+                                                className="h-10 w-10 rounded-lg object-cover"
+                                                onError={(e) => {
+                                                    e.currentTarget.onerror = null;
+                                                    e.currentTarget.src = fallbackPackageImage;
+                                                }}
+                                            />
                                             <div>
                                                 <p className="font-semibold text-slate-800">{pkg.name}</p>
                                                 <p className="text-xs text-slate-500">{pkg.route}</p>
