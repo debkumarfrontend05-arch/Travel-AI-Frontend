@@ -154,6 +154,7 @@ const CreateNewPackage = () => {
   const [destination, setDestination] = useState(null);
   const [startLocation, setStartLocation] = useState(null);
   const [endLocation, setEndLocation] = useState(null);
+  const [manualPrice, setManualPrice] = useState("");
   const [locations, setLocations] = useState([]);
   const [hotelLocations, setHotelLocations] = useState([]);
   const [nights, setNights] = useState(null);
@@ -441,6 +442,11 @@ const CreateNewPackage = () => {
       setCurrentStep(1);
       return;
     }
+    if (!manualPrice || Number(manualPrice) <= 0) {
+      alert("Please enter a valid package price.");
+      setCurrentStep(1);
+      return;
+    }
     if (!manualItineraryData.days.length || !manualItineraryData.timelineItems.length) {
       alert("Please add itinerary details before creating package.");
       setCurrentStep(2);
@@ -456,6 +462,7 @@ const CreateNewPackage = () => {
       formPayload.append("city", startLocation.value);
       formPayload.append("startCity", startLocation.value);
       formPayload.append("endCity", endLocation.value);
+      formPayload.append("price", String(Number(manualPrice)));
       formPayload.append(
         "duration",
         JSON.stringify({
@@ -500,6 +507,7 @@ const CreateNewPackage = () => {
       setEndLocation(null);
       setNights(null);
       setDays(null);
+      setManualPrice("");
       setFilename(null);
     } catch (error) {
       console.error("Failed to create package", error);
@@ -641,32 +649,46 @@ const CreateNewPackage = () => {
                         </div>
                       )}
                     </label>
-                    <Select
-                      options={destinationOptions}
-                      value={destination}
-                      onChange={(selectedState) => {
-                        setDestination(selectedState);
-                      }}
-                      isClearable
-                      isSearchable
-                      placeholder="Search State..."
-                      menuPortalTarget={selectPortalTarget}
-                      menuPosition="fixed"
-                      styles={customSelectStyles}
-                    />
-                    <Select
-                      options={cityOptions}
-                      value={startLocation}
-                      onChange={setStartLocation}
-                      isClearable
-                      isSearchable
-                      placeholder="Select start City"
-                      isDisabled={!destination}
-                      menuPortalTarget={selectPortalTarget}
-                      menuPosition="fixed"
-                      styles={customSelectStyles}
-                    />
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-3 md:col-span-2 md:grid-cols-3">
+                      <Select
+                        options={destinationOptions}
+                        value={destination}
+                        onChange={(selectedState) => {
+                          setDestination(selectedState);
+                        }}
+                        isClearable
+                        isSearchable
+                        placeholder="Search State..."
+                        menuPortalTarget={selectPortalTarget}
+                        menuPosition="fixed"
+                        styles={customSelectStyles}
+                      />
+                      <Select
+                        options={cityOptions}
+                        value={startLocation}
+                        onChange={setStartLocation}
+                        isClearable
+                        isSearchable
+                        placeholder="Select start City"
+                        isDisabled={!destination}
+                        menuPortalTarget={selectPortalTarget}
+                        menuPosition="fixed"
+                        styles={customSelectStyles}
+                      />
+                      <Select
+                        options={cityOptions}
+                        value={endLocation}
+                        onChange={setEndLocation}
+                        isClearable
+                        isSearchable
+                        placeholder="Select end City"
+                        isDisabled={!destination}
+                        menuPortalTarget={selectPortalTarget}
+                        menuPosition="fixed"
+                        styles={customSelectStyles}
+                      />
+                    </div>
+                    <div className="grid gap-3 md:col-span-2 md:grid-cols-3">
                       <Select
                         options={nightsOptions}
                         value={nights}
@@ -688,19 +710,15 @@ const CreateNewPackage = () => {
                         menuPosition="fixed"
                         styles={customSelectStyles}
                       />
+                      <input
+                        type="number"
+                        min="0"
+                        value={manualPrice}
+                        onChange={(e) => setManualPrice(e.target.value)}
+                        placeholder="Enter price"
+                        className="rounded-lg border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-400"
+                      />
                     </div>
-                    <Select
-                      options={cityOptions}
-                      value={endLocation}
-                      onChange={setEndLocation}
-                      isClearable
-                      isSearchable
-                      placeholder="Select end City"
-                      isDisabled={!destination}
-                      menuPortalTarget={selectPortalTarget}
-                      menuPosition="fixed"
-                      styles={customSelectStyles}
-                    />
                   </div>
                 </div>
 
@@ -746,6 +764,7 @@ const CreateNewPackage = () => {
                   state: destination?.value || "",
                   startCity: startLocation?.value || "",
                   endCity: endLocation?.value || "",
+                  price: Number(manualPrice) || 0,
                   days: days?.value || 0,
                   nights: nights?.value || 0,
                 }}
