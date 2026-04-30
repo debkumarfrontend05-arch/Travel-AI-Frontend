@@ -34,8 +34,8 @@ const creationOptions = [
     iconBgClass: "bg-blue-500",
   },
   {
-    title: "MD Prompt Generator",
-    description: "Select data and generate MD prompt",
+    title: "MD File Uploads",
+    description: "Upload MD files and generate itineraries",
     icon: FileText,
     iconBgClass: "bg-emerald-500",
   },

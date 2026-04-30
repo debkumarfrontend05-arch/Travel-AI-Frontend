@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -235,8 +235,12 @@ const PackagesComponent = () => {
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sortBy, setSortBy] = useState("Latest");
   const [viewMode, setViewMode] = useState("grid");
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPackage, setSelectedPackage] = useState(null);
+  const [selectedDeletePackage, setSelectedDeletePackage] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const filterMenuRef = useRef(null);
 
   const pageSize = viewMode === "grid" ? 8 : 5;
 
@@ -360,6 +364,17 @@ const PackagesComponent = () => {
     setCurrentPage(1);
   }, [search, destinationFilter, durationFilter, typeFilter, statusFilter, sortBy, viewMode]);
 
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) {
+        setIsFilterMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
   const getItinerary = (pkg) => {
     const dayCount = Math.max(2, pkg.durationDays);
     const stops = pkg.locations.length > 0 ? pkg.locations : [pkg.destination];
@@ -405,10 +420,33 @@ const PackagesComponent = () => {
     });
   };
 
-  const handleDeletePackage = (event, packageId) => {
+  const handleDeletePackage = (event, pkg) => {
     event.stopPropagation();
-    setPackages((prev) => prev.filter((pkg) => pkg.id !== packageId));
-    setSelectedPackage((prev) => (prev?.id === packageId ? null : prev));
+    setSelectedDeletePackage(pkg);
+  };
+
+  const confirmDeletePackage = async () => {
+    if (!selectedDeletePackage?.id) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`${API_URL}/packages/${selectedDeletePackage.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete package");
+      }
+
+      setPackages((prev) => prev.filter((pkg) => pkg.id !== selectedDeletePackage.id));
+      setSelectedPackage((prev) => (prev?.id === selectedDeletePackage.id ? null : prev));
+      setSelectedDeletePackage(null);
+    } catch (error) {
+      console.error("Failed to delete package", error);
+      alert("Failed to delete package");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -445,54 +483,67 @@ const PackagesComponent = () => {
 
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <button className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50">
-            <SlidersHorizontal size={16} />
-          </button>
+          <div className="relative" ref={filterMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsFilterMenuOpen((prev) => !prev)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
+            >
+              <SlidersHorizontal size={16} />
+            </button>
 
-          <select
-            value={destinationFilter}
-            onChange={(event) => setDestinationFilter(event.target.value)}
-            className="h-11 min-w-[180px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
-          >
-            {destinationOptions.map((destination) => (
-              <option key={destination} value={destination}>
-                {destination}
-              </option>
-            ))}
-          </select>
+            {isFilterMenuOpen ? (
+              <div className="absolute left-0 top-full z-20 mt-2 w-[min(92vw,760px)] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+                <p className="mb-3 text-sm font-semibold text-slate-800">Filters</p>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <select
+                    value={destinationFilter}
+                    onChange={(event) => setDestinationFilter(event.target.value)}
+                    className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
+                  >
+                    {destinationOptions.map((destination) => (
+                      <option key={destination} value={destination}>
+                        {destination}
+                      </option>
+                    ))}
+                  </select>
 
-          <select
-            value={durationFilter}
-            onChange={(event) => setDurationFilter(event.target.value)}
-            className="h-11 min-w-[180px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
-          >
-            <option>All Durations</option>
-            <option>Short (3-5 days)</option>
-            <option>Medium (6-7 days)</option>
-            <option>Long (8+ days)</option>
-          </select>
+                  <select
+                    value={durationFilter}
+                    onChange={(event) => setDurationFilter(event.target.value)}
+                    className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
+                  >
+                    <option>All Durations</option>
+                    <option>Short (3-5 days)</option>
+                    <option>Medium (6-7 days)</option>
+                    <option>Long (8+ days)</option>
+                  </select>
 
-          <select
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value)}
-            className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
-          >
-            {typeOptions.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+                  <select
+                    value={typeFilter}
+                    onChange={(event) => setTypeFilter(event.target.value)}
+                    className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
+                  >
+                    {typeOptions.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
 
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
-          >
-            <option>All Status</option>
-            <option>Published</option>
-            <option>Draft</option>
-          </select>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                    className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
+                  >
+                    <option>All Status</option>
+                    <option>Published</option>
+                    <option>Draft</option>
+                  </select>
+                </div>
+              </div>
+            ) : null}
+          </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-3">
             <select
@@ -561,7 +612,7 @@ const PackagesComponent = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={(event) => handleDeletePackage(event, pkg.id)}
+                  onClick={(event) => handleDeletePackage(event, pkg)}
                   className="absolute left-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/95 text-rose-500 transition hover:bg-rose-50 hover:text-rose-600"
                   title="Delete package"
                 >
@@ -640,7 +691,7 @@ const PackagesComponent = () => {
                   <p className="text-xs text-slate-500">per person</p>
                   <button
                     type="button"
-                    onClick={(event) => handleDeletePackage(event, pkg.id)}
+                    onClick={(event) => handleDeletePackage(event, pkg)}
                     className="mt-2 inline-flex items-center gap-1 rounded-md border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50"
                     title="Delete package"
                   >
@@ -786,6 +837,36 @@ const PackagesComponent = () => {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedDeletePackage ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <h4 className="text-lg font-semibold text-slate-900">Delete Package</h4>
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-slate-800">{selectedDeletePackage?.name}</span>?
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedDeletePackage(null)}
+                disabled={isDeleting}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeletePackage}
+                disabled={isDeleting}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
             </div>
           </div>
         </div>
