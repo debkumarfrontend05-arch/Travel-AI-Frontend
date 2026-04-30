@@ -14,10 +14,13 @@ import {
   Trash2,
   RotateCcw,
   Save,
+  UploadCloud,
 } from "lucide-react";
 import Select from "react-select";
 import ItineraryStep from "./ItineraryStep";
 import ReviewStep from "./ReviewStep";
+import { fetchHotels } from "../api";
+import toast from "react-hot-toast";
 
 const creationOptions = [
   {
@@ -33,8 +36,8 @@ const creationOptions = [
     iconBgClass: "bg-blue-500",
   },
   {
-    title: "MD Prompt Generator",
-    description: "Select data and generate MD prompt",
+    title: "MD File Uploads",
+    description: "Upload MD files and generate itineraries",
     icon: FileText,
     iconBgClass: "bg-emerald-500",
   },
@@ -42,20 +45,14 @@ const creationOptions = [
 
 const modalSteps = ["Basic Info", "Itinerary", "Review"];
 const API_URL = "http://localhost:3000/api";
+const UNSPLASH_ACCESS_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY || "";
+const isActiveMasterRecord = (record) =>
+  String(record?.status || "").trim().toLowerCase() === "active";
 
 const nightsOptions = Array.from({ length: 20 }, (_, idx) => ({
   value: idx + 1,
   label: `${idx + 1} Night${idx + 1 > 1 ? "s" : ""}`,
 }));
-
-const aiStates = ["Goa", "Kerala", "Rajasthan", "Himachal Pradesh", "Uttarakhand"];
-const aiCitiesByState = {
-  Goa: ["Goa"],
-  Kerala: ["Kochi", "Munnar", "Alleppey"],
-  Rajasthan: ["Jaipur", "Udaipur", "Jodhpur"],
-  "Himachal Pradesh": ["Manali", "Shimla"],
-  Uttarakhand: ["Rishikesh", "Nainital"],
-};
 
 const aiInitialDays = [
   {
@@ -150,10 +147,11 @@ const customSelectStyles = {
   menuPortal: (base) => ({ ...base, zIndex: 9999 }),
 };
 
-const CreateNewPackage = () => {
+const CreateNewPackage = ({ onPackageCreated }) => {
   const selectPortalTarget = typeof document !== "undefined" ? document.body : null;
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [isMDModalOpen, setIsMDModalOpen] = useState(false);
   const [isEditActivityModalOpen, setIsEditActivityModalOpen] = useState(false);
   const [filename, setFilename] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -162,7 +160,9 @@ const CreateNewPackage = () => {
   const [destination, setDestination] = useState(null);
   const [startLocation, setStartLocation] = useState(null);
   const [endLocation, setEndLocation] = useState(null);
+  const [manualPrice, setManualPrice] = useState("");
   const [locations, setLocations] = useState([]);
+  const [hotelLocations, setHotelLocations] = useState([]);
   const [nights, setNights] = useState(null);
   const [days, setDays] = useState(null);
   const [manualItineraryData, setManualItineraryData] = useState({ days: [], timelineItems: [] });
@@ -188,8 +188,8 @@ const CreateNewPackage = () => {
 
   const [aiForm, setAiForm] = useState({
     packageName: "Goa Beach Escape",
-    state: "Goa",
-    city: "Goa",
+    state: "",
+    city: "",
     nights: 2,
   });
   const [aiDays, setAiDays] = useState(aiInitialDays);
@@ -206,6 +206,11 @@ const CreateNewPackage = () => {
     () => (filename ? URL.createObjectURL(filename) : ""),
     [filename]
   );
+  const [mdFile, setMdFile] = useState(null);
+  const [mdFileContent, setMdFileContent] = useState("");
+  const [isMdParsing, setIsMdParsing] = useState(false);
+  const [isMdSaving, setIsMdSaving] = useState(false);
+  const [mdParsedPackage, setMdParsedPackage] = useState(null);
 
   const aiCityOptions = useMemo(() => aiCitiesByState[aiForm.state] || [], [aiForm.state]);
   const aiStateOptions = useMemo(() => {
@@ -251,6 +256,11 @@ const CreateNewPackage = () => {
 
     if (title === "Build with AI") {
       setIsAIModalOpen(true);
+      return;
+    }
+
+    if (title === "MD File Uploads") {
+      setIsMDModalOpen(true);
     }
   };
 
@@ -265,6 +275,204 @@ const CreateNewPackage = () => {
     setIsAIModalOpen(false);
     setIsEditActivityModalOpen(false);
   };
+
+  const closeMDModal = () => {
+    setIsMDModalOpen(false);
+    setMdFile(null);
+    setMdFileContent("");
+    setMdParsedPackage(null);
+    setIsMdParsing(false);
+    setIsMdSaving(false);
+  };
+
+  const parseMarkdownPackage = (markdownText) => {
+    const text = (markdownText || "").trim();
+    const lines = text.split(/\r?\n/);
+
+    const titleFromHeading =
+      lines.find((line) => /^#\s+/.test(line))?.replace(/^#\s+/, "").trim() || "";
+    const titleFromKey =
+      text.match(/(?:package\s*name|title)\s*:\s*(.+)/i)?.[1]?.trim() || "";
+    const packageName = titleFromHeading || titleFromKey || "Untitled Package";
+
+    const destination =
+      text.match(/destination\s*:\s*(.+)/i)?.[1]?.trim() ||
+      text.match(/state\s*:\s*(.+)/i)?.[1]?.trim() ||
+      text.match(/city\s*:\s*(.+)/i)?.[1]?.trim() ||
+      "";
+
+    const durationMatch =
+      text.match(/(\d+)\s*D\s*\/\s*(\d+)\s*N/i) ||
+      text.match(/(\d+)\s*days?\s*\/\s*(\d+)\s*nights?/i);
+    const parsedDays = durationMatch ? Number(durationMatch[1]) : 0;
+    const parsedNights = durationMatch ? Number(durationMatch[2]) : Math.max(parsedDays - 1, 0);
+    const priceMatch =
+      text.match(/(?:package\s*)?price\s*:\s*(?:rs\.?|inr|₹)?\s*([\d,]+)/i) ||
+      text.match(/(?:rs\.?|inr|₹)\s*([\d,]+)/i);
+    const parsedPrice = priceMatch ? Number(String(priceMatch[1]).replace(/,/g, "")) : 0;
+
+    const itinerary = [];
+    let currentDay = null;
+
+    lines.forEach((rawLine) => {
+      const line = rawLine.trim();
+      const dayMatch = line.match(/^#{2,3}\s*Day\s*(\d+)\s*[:\-]?\s*(.*)$/i);
+      if (dayMatch) {
+        if (currentDay) itinerary.push(currentDay);
+        const dayNumber = Number(dayMatch[1]);
+        currentDay = {
+          day: dayNumber,
+          title: dayMatch[2]?.trim() || `Day ${dayNumber}`,
+          hotel: "",
+          transfer: "",
+          sightseeing: [],
+          meals: [],
+          activities: [],
+          info: "",
+        };
+        return;
+      }
+
+      if (!currentDay) return;
+
+      const bulletMatch = line.match(/^[-*]\s+(.+)$/);
+      if (!bulletMatch) return;
+
+      const item = bulletMatch[1].trim();
+      if (!item) return;
+
+      currentDay.activities.push({
+        time: "",
+        type: "Information",
+        title: item,
+        detail1: item,
+        detail2: "",
+        status: "Planned",
+      });
+    });
+
+    if (currentDay) itinerary.push(currentDay);
+
+    const days = itinerary.length || parsedDays || 0;
+    const nights = parsedNights || (days > 0 ? Math.max(days - 1, 0) : 0);
+
+    return {
+      packageName,
+      destination,
+      days,
+      nights,
+      price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
+      itinerary,
+    };
+  };
+
+  const handleMDFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setMdFile(file);
+
+    const text = await file.text();
+    setMdFileContent(text);
+  };
+
+  const handleParseMDFile = () => {
+    if (!mdFileContent.trim()) {
+      toast.error("Please upload a markdown (.md) file first.");
+      return;
+    }
+
+    setIsMdParsing(true);
+    try {
+      const parsed = parseMarkdownPackage(mdFileContent);
+      if (!parsed.itinerary.length) {
+        toast.error("Could not find itinerary days in this file. Use headings like '## Day 1'.");
+        setMdParsedPackage(null);
+        return;
+      }
+      setMdParsedPackage(parsed);
+    } finally {
+      setIsMdParsing(false);
+    }
+  };
+
+  const fetchDestinationCoverImage = async (destination) => {
+    const query = `${destination || "travel destination"} travel`;
+
+    if (UNSPLASH_ACCESS_KEY) {
+      try {
+        const response = await fetch(
+          `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
+            query
+          )}&orientation=landscape&per_page=1&client_id=${UNSPLASH_ACCESS_KEY}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const first = data?.results?.[0];
+          const url = first?.urls?.regular || first?.urls?.full || first?.urls?.raw;
+          if (url) return url;
+        }
+      } catch (error) {
+        console.error("Unsplash lookup failed, using fallback image URL", error);
+      }
+    }
+
+    return `https://source.unsplash.com/1600x900/?${encodeURIComponent(query)}`;
+  };
+
+  const handleConfirmMDPackage = async () => {
+    if (!mdParsedPackage?.itinerary?.length) {
+      toast.error("Please upload and parse a valid markdown file first.");
+      return;
+    }
+
+    const payload = {
+      title: mdParsedPackage.packageName || "Untitled Package",
+      state: mdParsedPackage.destination || "Unknown",
+      city: mdParsedPackage.destination || "Unknown",
+      startCity: mdParsedPackage.destination || "Unknown",
+      endCity: mdParsedPackage.destination || "Unknown",
+      price: Number(mdParsedPackage.price || 0),
+      duration: {
+        days: Number(mdParsedPackage.days || 0),
+        nights: Number(mdParsedPackage.nights || 0),
+      },
+      itinerary: mdParsedPackage.itinerary,
+      createdVia: "md",
+    };
+
+    setIsMdSaving(true);
+    try {
+      const destinationForImage =
+        mdParsedPackage.destination || mdParsedPackage.packageName || "travel";
+      const unsplashImage = await fetchDestinationCoverImage(destinationForImage);
+
+      payload.image = unsplashImage;
+      payload.coverImage = unsplashImage;
+
+      const response = await fetch(`${API_URL}/packages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save package from markdown.");
+      }
+
+      toast.success("Markdown package saved successfully.");
+      if (typeof onPackageCreated === "function") {
+        onPackageCreated();
+      }
+      closeMDModal();
+    } catch (error) {
+      console.error("Failed to save markdown package", error);
+      toast.error(error?.message || "Failed to save markdown package.");
+    } finally {
+      setIsMdSaving(false);
+    }
+  };
+
 
   const handleNightsChange = (selectedOption) => {
     setNights(selectedOption);
@@ -377,6 +585,21 @@ const CreateNewPackage = () => {
     };
 
     fetchLocations();
+  }, []);
+
+  useEffect(() => {
+    const fetchHotelLocations = async () => {
+      try {
+        const hotels = await fetchHotels();
+        const activeHotels = (Array.isArray(hotels) ? hotels : []).filter(isActiveMasterRecord);
+        setHotelLocations(activeHotels);
+      } catch (error) {
+        console.error("Failed to fetch hotels", error);
+        setHotelLocations([]);
+      }
+    };
+
+    fetchHotelLocations();
   }, []);
 
   useEffect(() => {
@@ -573,17 +796,29 @@ const CreateNewPackage = () => {
 
   const handleCreateManualPackage = async () => {
     if (!manualPackageName.trim()) {
-      alert("Please enter package name.");
+      toast.error("Please enter package name.");
       setCurrentStep(1);
       return;
     }
     if (!destination?.value || !startLocation?.value || !endLocation?.value || !days?.value || !nights?.value) {
-      alert("Please complete basic package information.");
+      toast.error("Please complete basic package information.");
+      setCurrentStep(1);
+      return;
+    }
+    if (!manualPrice || Number(manualPrice) <= 0) {
+      toast.error("Please enter a valid package price.");
       setCurrentStep(1);
       return;
     }
     if (!manualItineraryData.days.length || !manualItineraryData.timelineItems.length) {
-      alert("Please add itinerary details before creating package.");
+      toast.error("Please add itinerary details before creating package.");
+      setCurrentStep(2);
+      return;
+    }
+    if (Number(days?.value || 0) !== manualItineraryData.days.length) {
+      toast.error(
+        `You can save only with exactly ${days?.value || 0} itinerary days for ${nights?.value || 0} night ${days?.value || 0} days trip.`
+      );
       setCurrentStep(2);
       return;
     }
@@ -597,6 +832,7 @@ const CreateNewPackage = () => {
       formPayload.append("city", startLocation.value);
       formPayload.append("startCity", startLocation.value);
       formPayload.append("endCity", endLocation.value);
+      formPayload.append("price", String(Number(manualPrice)));
       formPayload.append(
         "duration",
         JSON.stringify({
@@ -633,7 +869,10 @@ const CreateNewPackage = () => {
         throw new Error(serverMessage);
       }
 
-      alert("Package created successfully.");
+      toast.success("Package created successfully.");
+      if (typeof onPackageCreated === "function") {
+        onPackageCreated();
+      }
       closeManualModal();
       setManualPackageName("");
       setDestination(null);
@@ -641,13 +880,70 @@ const CreateNewPackage = () => {
       setEndLocation(null);
       setNights(null);
       setDays(null);
+      setManualPrice("");
       setFilename(null);
     } catch (error) {
       console.error("Failed to create package", error);
-      alert(error?.message || "Failed to create package.");
+      toast.error(error?.message || "Failed to create package.");
     } finally {
       setIsManualSaving(false);
     }
+  };
+
+  const handleGenerateManualMarkdown = () => {
+    const packageName = (manualPackageName || "Untitled Package").trim();
+    const state = destination?.value || "-";
+    const startCity = startLocation?.value || "-";
+    const endCity = endLocation?.value || "-";
+    const durationDays = Number(days?.value || 0);
+    const durationNights = Number(nights?.value || 0);
+    const price = manualPrice ? Number(manualPrice) : 0;
+    const itinerary = buildManualItineraryPayload(manualItineraryData);
+
+    if (!itinerary.length) {
+      toast.error("Please add itinerary details before generating .md file.");
+      return;
+    }
+
+    const itineraryMarkdown = itinerary
+      .map((day) => {
+        const sections = [
+          `## Day ${day.day}: ${day.title || `Day ${day.day}`}`,
+          `- Hotel: ${day.hotel || "-"}`,
+          `- Transfer: ${day.transfer || "-"}`,
+          `- Meal: ${day.meals?.length ? day.meals.join(", ") : "-"}`,
+          `- Sightseeing: ${day.sightseeing?.length ? day.sightseeing.join(", ") : "-"}`,
+          `- Information: ${day.info || "-"}`,
+        ];
+        return sections.join("\n");
+      })
+      .join("\n\n");
+
+    const markdownContent = [
+      `# ${packageName}`,
+      "",
+      `- State: ${state}`,
+      `- Start City: ${startCity}`,
+      `- End City: ${endCity}`,
+      `- Duration: ${durationDays}D/${durationNights}N`,
+      `- Price: ${price > 0 ? price : "-"}`,
+      "",
+      "## Itinerary",
+      itineraryMarkdown,
+      "",
+    ].join("\n");
+
+    const fileName = `${packageName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "package"}.md`;
+    const blob = new Blob([markdownContent], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+    toast.success(".md file generated successfully.");
   };
 
   return (
@@ -782,32 +1078,46 @@ const CreateNewPackage = () => {
                         </div>
                       )}
                     </label>
-                    <Select
-                      options={destinationOptions}
-                      value={destination}
-                      onChange={(selectedState) => {
-                        setDestination(selectedState);
-                      }}
-                      isClearable
-                      isSearchable
-                      placeholder="Search State..."
-                      menuPortalTarget={selectPortalTarget}
-                      menuPosition="fixed"
-                      styles={customSelectStyles}
-                    />
-                    <Select
-                      options={cityOptions}
-                      value={startLocation}
-                      onChange={setStartLocation}
-                      isClearable
-                      isSearchable
-                      placeholder="Select start City"
-                      isDisabled={!destination}
-                      menuPortalTarget={selectPortalTarget}
-                      menuPosition="fixed"
-                      styles={customSelectStyles}
-                    />
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-3 md:col-span-2 md:grid-cols-3">
+                      <Select
+                        options={destinationOptions}
+                        value={destination}
+                        onChange={(selectedState) => {
+                          setDestination(selectedState);
+                        }}
+                        isClearable
+                        isSearchable
+                        placeholder="Search State..."
+                        menuPortalTarget={selectPortalTarget}
+                        menuPosition="fixed"
+                        styles={customSelectStyles}
+                      />
+                      <Select
+                        options={cityOptions}
+                        value={startLocation}
+                        onChange={setStartLocation}
+                        isClearable
+                        isSearchable
+                        placeholder="Select start City"
+                        isDisabled={!destination}
+                        menuPortalTarget={selectPortalTarget}
+                        menuPosition="fixed"
+                        styles={customSelectStyles}
+                      />
+                      <Select
+                        options={cityOptions}
+                        value={endLocation}
+                        onChange={setEndLocation}
+                        isClearable
+                        isSearchable
+                        placeholder="Select end City"
+                        isDisabled={!destination}
+                        menuPortalTarget={selectPortalTarget}
+                        menuPosition="fixed"
+                        styles={customSelectStyles}
+                      />
+                    </div>
+                    <div className="grid gap-3 md:col-span-2 md:grid-cols-3">
                       <Select
                         options={nightsOptions}
                         value={nights}
@@ -829,19 +1139,15 @@ const CreateNewPackage = () => {
                         menuPosition="fixed"
                         styles={customSelectStyles}
                       />
+                      <input
+                        type="number"
+                        min="0"
+                        value={manualPrice}
+                        onChange={(e) => setManualPrice(e.target.value)}
+                        placeholder="Enter price"
+                        className="rounded-lg border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-400"
+                      />
                     </div>
-                    <Select
-                      options={cityOptions}
-                      value={endLocation}
-                      onChange={setEndLocation}
-                      isClearable
-                      isSearchable
-                      placeholder="Select end City"
-                      isDisabled={!destination}
-                      menuPortalTarget={selectPortalTarget}
-                      menuPosition="fixed"
-                      styles={customSelectStyles}
-                    />
                   </div>
                 </div>
 
@@ -873,6 +1179,8 @@ const CreateNewPackage = () => {
                 }}
                 initialData={manualItineraryData}
                 selectedState={destination?.value || ""}
+                selectedTripDays={Number(days?.value || 0)}
+                selectedTripNights={Number(nights?.value || 0)}
               />
             ) : null}
 
@@ -881,12 +1189,14 @@ const CreateNewPackage = () => {
                 onBack={() => setCurrentStep(2)}
                 onClose={closeManualModal}
                 onCreate={handleCreateManualPackage}
+                onGenerateMd={handleGenerateManualMarkdown}
                 isSaving={isManualSaving}
                 packageData={{
                   packageName: manualPackageName,
                   state: destination?.value || "",
                   startCity: startLocation?.value || "",
                   endCity: endLocation?.value || "",
+                  price: Number(manualPrice) || 0,
                   days: days?.value || 0,
                   nights: nights?.value || 0,
                 }}
@@ -897,10 +1207,130 @@ const CreateNewPackage = () => {
         </div>
       ) : null}
 
+      {isMDModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
+          <div className="flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex shrink-0 items-start justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <h3 className="text-2xl font-semibold text-slate-900">MD File Uploads</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Upload markdown packages or generate a prompt template.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeMDModal}
+                className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+              <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                >
+                  1. Upload .md & Confirm Package
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-5">
+                  <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-violet-300 bg-violet-50/40 px-4 py-10 text-center transition hover:bg-violet-50">
+                    <input type="file" accept=".md,text/markdown" onChange={handleMDFileChange} className="hidden" />
+                    <div className="flex flex-col items-center">
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                        <UploadCloud size={18} />
+                      </span>
+                      <p className="mt-3 text-sm font-semibold text-slate-800">
+                        {mdFile ? mdFile.name : "Upload .md file"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">Only markdown files are supported</p>
+                    </div>
+                  </label>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-slate-500">
+                      {mdFile ? "File selected. Parse to preview package details." : "Choose a file, then parse it."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleParseMDFile}
+                      className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-300"
+                      disabled={isMdParsing || !mdFile}
+                    >
+                      {isMdParsing ? "Parsing..." : "Parse File"}
+                    </button>
+                  </div>
+
+                  {mdParsedPackage ? (
+                    <div className="rounded-xl border border-slate-200 p-4">
+                      <h4 className="text-base font-semibold text-slate-900">Parsed Package Details</h4>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                        <div className="rounded-lg bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Package Name</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-800">{mdParsedPackage.packageName}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Destination</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-800">{mdParsedPackage.destination || "-"}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Days</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-800">{mdParsedPackage.days}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Nights</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-800">{mdParsedPackage.nights}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Price</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-800">
+                            ₹{Number(mdParsedPackage.price || 0).toLocaleString("en-IN")}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div
+                        data-lenis-prevent
+                        className="mt-4 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3"
+                      >
+                        {mdParsedPackage.itinerary.map((day) => (
+                          <div key={`md-day-${day.day}`} className="rounded-md border border-slate-100 bg-slate-50 p-2.5">
+                            <p className="text-xs font-semibold text-violet-700">Day {day.day}</p>
+                            <p className="text-sm font-semibold text-slate-900">{day.title}</p>
+                            <ul className="mt-1 space-y-1 text-xs text-slate-600">
+                              {day.activities.slice(0, 4).map((activity, idx) => (
+                                <li key={`md-act-${day.day}-${idx}`}>- {activity.title}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={handleConfirmMDPackage}
+                          disabled={isMdSaving}
+                          className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                        >
+                          {isMdSaving ? "Saving..." : "Confirm Package"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {isAIModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[1.5px]">
-          <div className="max-h-[95vh] w-full max-w-[1240px] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+          <div className="flex max-h-[95vh] w-full max-w-[1240px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex shrink-0 items-start justify-between border-b border-slate-200 px-6 py-5">
               <div>
                 <h3 className="flex items-center gap-2 text-[34px] font-semibold leading-tight text-slate-900">
                   Build with AI
@@ -918,8 +1348,8 @@ const CreateNewPackage = () => {
               </button>
             </div>
 
-            <div className="grid gap-5 p-5 lg:grid-cols-[1.02fr_1.58fr]">
-              <div className="rounded-xl border border-slate-200 p-5">
+            <div className="grid min-h-0 flex-1 gap-5 overflow-hidden p-5 lg:grid-cols-[1.02fr_1.58fr]">
+              <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-200 p-5">
                 <h4 className="text-2xl font-semibold text-slate-900">Package Details</h4>
                 <p className="mt-1 text-sm text-slate-500">
                   Fill in the basic details to let AI generate your itinerary
@@ -939,7 +1369,7 @@ const CreateNewPackage = () => {
                     <div>
                       <label className="mb-1.5 block text-sm font-semibold text-slate-700">State</label>
                       <select
-                        value={aiForm.state}
+                        value={selectedAiState}
                         onChange={(e) => {
                           const nextState = e.target.value;
                           const fallbackCity = [...new Set(
@@ -962,7 +1392,7 @@ const CreateNewPackage = () => {
                     <div>
                       <label className="mb-1.5 block text-sm font-semibold text-slate-700">City</label>
                       <select
-                        value={aiForm.city}
+                        value={selectedAiCity}
                         onChange={(e) => handleAiFieldChange("city", e.target.value)}
                         className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-violet-100 transition focus:border-violet-400 focus:ring-4"
                       >
@@ -1027,7 +1457,7 @@ const CreateNewPackage = () => {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-5">
+              <div className="flex min-h-0 flex-col rounded-xl border border-slate-200 p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h4 className="text-2xl font-semibold text-slate-900">AI Generated Itinerary</h4>
@@ -1040,7 +1470,10 @@ const CreateNewPackage = () => {
                   </div>
                 </div>
 
-                <div className="space-y-4 max-h-[300px] overflow-y-auto">
+                <div
+                  data-lenis-prevent
+                  className="max-h-[300px] space-y-4 overflow-y-auto overscroll-contain pr-1"
+                >
                   {aiDays.map((day) => (
                     <div key={day.id} className="rounded-xl border border-slate-200 bg-white p-4">
                       <div className="flex items-center gap-3 pb-3">
@@ -1172,3 +1605,4 @@ const CreateNewPackage = () => {
 };
 
 export default CreateNewPackage;
+

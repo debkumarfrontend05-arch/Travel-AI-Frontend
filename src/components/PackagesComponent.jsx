@@ -1,23 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bell,
   CalendarDays,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Grid2X2,
-  Heart,
   List,
   MapPin,
-  MoreVertical,
   Search,
   SlidersHorizontal,
-  Sparkles,
   Star,
-  Users,
   X,
   Trash2,
 } from "lucide-react";
+import API_URL from "../api";
+import toast from "react-hot-toast";
 
 const packageRows = [
   {
@@ -195,8 +191,37 @@ const packageRows = [
   },
 ];
 
+const fallbackImage =
+  "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?auto=format&fit=crop&w=900&q=80";
+const getRandomRating = () => Number((4 + Math.random()).toFixed(1));
+
+const resolvePackageImage = (pkg) => {
+  const rawImage =
+    pkg?.coverImage?.url ||
+    pkg?.coverImage?.path ||
+    pkg?.coverImage?.filename ||
+    pkg?.coverImage ||
+    pkg?.image?.url ||
+    pkg?.image?.path ||
+    pkg?.image?.filename ||
+    pkg?.image ||
+    "";
+
+  if (!rawImage || typeof rawImage !== "string") return fallbackImage;
+  if (/^https?:\/\//i.test(rawImage)) return rawImage;
+
+  const normalized = rawImage.replace(/\\/g, "/");
+  const uploadPath = normalized.startsWith("/")
+    ? normalized
+    : normalized.startsWith("uploads/")
+      ? `/${normalized}`
+      : `/uploads/${normalized}`;
+
+  return `${API_URL.replace(/\/api\/?$/, "")}${uploadPath}`;
+};
+
 const PackagesComponent = () => {
-  const [packages, setPackages] = useState(packageRows);
+  const [packages, setPackages] = useState([]);
   const [isCardsLoading, setIsCardsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [destinationFilter, setDestinationFilter] = useState("All Destinations");
@@ -205,14 +230,78 @@ const PackagesComponent = () => {
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sortBy, setSortBy] = useState("Latest");
   const [viewMode, setViewMode] = useState("grid");
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPackage, setSelectedPackage] = useState(null);
+  const [selectedDeletePackage, setSelectedDeletePackage] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const filterMenuRef = useRef(null);
 
   const pageSize = viewMode === "grid" ? 8 : 5;
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsCardsLoading(false), 700);
-    return () => clearTimeout(timer);
+    const loadPackages = async () => {
+      setIsCardsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/packages`);
+        const data = await response.json();
+        const rows = Array.isArray(data) ? data : [];
+
+        const mappedRows = rows.map((pkg, index) => {
+          const days = Number(pkg?.duration?.days || 0);
+          const nights = Number(pkg?.duration?.nights || Math.max(days - 1, 0));
+          const destination = pkg?.state || pkg?.city || "Unknown";
+          const locations = Array.from(
+            new Set(
+              (pkg?.itinerary || [])
+                .map((day) => day?.title)
+                .filter(Boolean)
+                .slice(0, 3)
+            )
+          );
+          const updatedAt = pkg?.updatedAt || pkg?.createdAt;
+
+          return {
+            id: pkg?._id || pkg?.id || `pkg-${index}`,
+            name: pkg?.title || "Untitled Package",
+            locations: locations.length ? locations : [pkg?.city || destination],
+            destination,
+            durationDays: days,
+            durationText: `${days}D / ${nights}N`,
+            pax: pkg?.pax || "2-10 Passengers",
+            rating: getRandomRating(),
+            reviews: Number(pkg?.reviews || 0),
+            price: Number(pkg?.price || 0),
+            source:
+              pkg?.createdVia === "ai"
+                ? "AI Generated"
+                : pkg?.createdVia === "md"
+                  ? "MD Prompt"
+                  : "Manual",
+            type: pkg?.type || pkg?.packageType || "General",
+            status: pkg?.status || "Draft",
+            updated: updatedAt
+              ? `Updated ${new Date(updatedAt).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}`
+              : "Updated -",
+            updatedTs: updatedAt ? new Date(updatedAt).getTime() : 0,
+            image: resolvePackageImage(pkg),
+          };
+        });
+
+        setPackages(mappedRows);
+      } catch (error) {
+        console.error("Failed to load packages", error);
+        setPackages(packageRows);
+      } finally {
+        setIsCardsLoading(false);
+      }
+    };
+
+    loadPackages();
   }, []);
 
   const destinationOptions = useMemo(() => {
@@ -255,7 +344,7 @@ const PackagesComponent = () => {
       if (sortBy === "Price: Low to High") return a.price - b.price;
       if (sortBy === "Price: High to Low") return b.price - a.price;
       if (sortBy === "Rating") return b.rating - a.rating;
-      return b.id - a.id;
+      return (b.updatedTs || 0) - (a.updatedTs || 0);
     });
   }, [packages, search, destinationFilter, durationFilter, typeFilter, statusFilter, sortBy]);
 
@@ -269,6 +358,17 @@ const PackagesComponent = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, destinationFilter, durationFilter, typeFilter, statusFilter, sortBy, viewMode]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) {
+        setIsFilterMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   const getItinerary = (pkg) => {
     const dayCount = Math.max(2, pkg.durationDays);
@@ -315,10 +415,33 @@ const PackagesComponent = () => {
     });
   };
 
-  const handleDeletePackage = (event, packageId) => {
+  const handleDeletePackage = (event, pkg) => {
     event.stopPropagation();
-    setPackages((prev) => prev.filter((pkg) => pkg.id !== packageId));
-    setSelectedPackage((prev) => (prev?.id === packageId ? null : prev));
+    setSelectedDeletePackage(pkg);
+  };
+
+  const confirmDeletePackage = async () => {
+    if (!selectedDeletePackage?.id) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`${API_URL}/packages/${selectedDeletePackage.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete package");
+      }
+
+      setPackages((prev) => prev.filter((pkg) => pkg.id !== selectedDeletePackage.id));
+      setSelectedPackage((prev) => (prev?.id === selectedDeletePackage.id ? null : prev));
+      setSelectedDeletePackage(null);
+    } catch (error) {
+      console.error("Failed to delete package", error);
+      toast.error("Failed to delete package");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -345,64 +468,77 @@ const PackagesComponent = () => {
               Ctrl+K
             </span>
           </label>
-          <button className="inline-flex h-12 items-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700">
+          {/* <button className="inline-flex h-12 items-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700">
             <Sparkles size={16} />
             Create Package
             <ChevronDown size={14} />
-          </button>
+          </button> */}
         </div>
       </div>
 
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <button className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50">
-            <SlidersHorizontal size={16} />
-          </button>
+          <div className="relative" ref={filterMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsFilterMenuOpen((prev) => !prev)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
+            >
+              <SlidersHorizontal size={16} />
+            </button>
 
-          <select
-            value={destinationFilter}
-            onChange={(event) => setDestinationFilter(event.target.value)}
-            className="h-11 min-w-[180px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
-          >
-            {destinationOptions.map((destination) => (
-              <option key={destination} value={destination}>
-                {destination}
-              </option>
-            ))}
-          </select>
+            {isFilterMenuOpen ? (
+              <div className="absolute left-0 top-full z-20 mt-2 w-[min(92vw,760px)] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+                <p className="mb-3 text-sm font-semibold text-slate-800">Filters</p>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <select
+                    value={destinationFilter}
+                    onChange={(event) => setDestinationFilter(event.target.value)}
+                    className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
+                  >
+                    {destinationOptions.map((destination) => (
+                      <option key={destination} value={destination}>
+                        {destination}
+                      </option>
+                    ))}
+                  </select>
 
-          <select
-            value={durationFilter}
-            onChange={(event) => setDurationFilter(event.target.value)}
-            className="h-11 min-w-[180px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
-          >
-            <option>All Durations</option>
-            <option>Short (3-5 days)</option>
-            <option>Medium (6-7 days)</option>
-            <option>Long (8+ days)</option>
-          </select>
+                  <select
+                    value={durationFilter}
+                    onChange={(event) => setDurationFilter(event.target.value)}
+                    className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
+                  >
+                    <option>All Durations</option>
+                    <option>Short (3-5 days)</option>
+                    <option>Medium (6-7 days)</option>
+                    <option>Long (8+ days)</option>
+                  </select>
 
-          <select
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value)}
-            className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
-          >
-            {typeOptions.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+                  <select
+                    value={typeFilter}
+                    onChange={(event) => setTypeFilter(event.target.value)}
+                    className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
+                  >
+                    {typeOptions.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
 
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
-          >
-            <option>All Status</option>
-            <option>Published</option>
-            <option>Draft</option>
-          </select>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                    className="h-11 min-w-[170px] rounded-xl border border-slate-200 px-3 text-sm text-slate-600 outline-none focus:border-violet-400"
+                  >
+                    <option>All Status</option>
+                    <option>Published</option>
+                    <option>Draft</option>
+                  </select>
+                </div>
+              </div>
+            ) : null}
+          </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-3">
             <select
@@ -471,7 +607,7 @@ const PackagesComponent = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={(event) => handleDeletePackage(event, pkg.id)}
+                  onClick={(event) => handleDeletePackage(event, pkg)}
                   className="absolute left-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/95 text-rose-500 transition hover:bg-rose-50 hover:text-rose-600"
                   title="Delete package"
                 >
@@ -483,7 +619,7 @@ const PackagesComponent = () => {
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-lg font-semibold text-slate-900">{pkg.name}</h3>
                   <p className="text-right text-violet-600">
-                    <span className="text-2xl font-semibold">${pkg.price.toLocaleString()}</span>
+                    <span className="text-2xl font-semibold">₹{pkg.price.toLocaleString()}</span>
                     <span className="block text-xs text-slate-500">per person</span>
                   </p>
                 </div>
@@ -550,7 +686,7 @@ const PackagesComponent = () => {
                   <p className="text-xs text-slate-500">per person</p>
                   <button
                     type="button"
-                    onClick={(event) => handleDeletePackage(event, pkg.id)}
+                    onClick={(event) => handleDeletePackage(event, pkg)}
                     className="mt-2 inline-flex items-center gap-1 rounded-md border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50"
                     title="Delete package"
                   >
@@ -612,8 +748,8 @@ const PackagesComponent = () => {
 
       {selectedPackage ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="shrink-0 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-semibold text-slate-900">{selectedPackage.name}</h3>
@@ -631,7 +767,7 @@ const PackagesComponent = () => {
               </div>
             </div>
 
-            <div className="p-4">
+            <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto p-4">
               <img
                 src={selectedPackage.image}
                 alt={selectedPackage.name}
@@ -641,7 +777,7 @@ const PackagesComponent = () => {
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
                   <p className="text-[11px] font-medium text-slate-500">Price</p>
-                  <p className="mt-1 text-base font-semibold text-violet-600">${selectedPackage.price.toLocaleString()}</p>
+                  <p className="mt-1 text-base font-semibold text-violet-600">₹{selectedPackage.price.toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
                   <p className="text-[11px] font-medium text-slate-500">Rating</p>
@@ -666,8 +802,8 @@ const PackagesComponent = () => {
 
               <div className="mt-4">
                 <h4 className="text-sm font-semibold text-slate-900">Day-wise Itinerary</h4>
-                <div className="mt-3 space-y-3">
-                  {getItinerary(selectedPackage).map((item, index, arr) => (
+                  <div className="mt-3 space-y-3">
+                    {getItinerary(selectedPackage).map((item, index, arr) => (
                     <div key={`${selectedPackage.id}-${item.day}`} className="relative pl-10">
                       {index < arr.length - 1 ? (
                         <span className="absolute left-[15px] top-7 h-[calc(100%+10px)] w-px bg-slate-200" />
@@ -677,11 +813,9 @@ const PackagesComponent = () => {
                       </span>
 
                       <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">
-                            Day {item.day}
-                          </p>
-                        </div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">
+                          Day {item.day}
+                        </p>
                         <h5 className="mt-1 text-sm font-semibold text-slate-900">{item.title}</h5>
                         <ul className="mt-2 space-y-1.5 text-xs text-slate-600">
                           {item.activities.map((activity) => (
@@ -693,9 +827,39 @@ const PackagesComponent = () => {
                         </ul>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedDeletePackage ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <h4 className="text-lg font-semibold text-slate-900">Delete Package</h4>
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-slate-800">{selectedDeletePackage?.name}</span>?
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedDeletePackage(null)}
+                disabled={isDeleting}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeletePackage}
+                disabled={isDeleting}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
             </div>
           </div>
         </div>

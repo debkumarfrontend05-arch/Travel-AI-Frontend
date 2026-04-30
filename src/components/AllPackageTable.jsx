@@ -2,6 +2,8 @@ import { ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+const fallbackPackageImage = "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?auto=format&fit=crop&w=200&q=80";
+
 const AllPackageTable = ({ recentPackages, onEditPackage, onDeletePackage, isLoading = false }) => {
     const navigate = useNavigate();
     const [openMenuId, setOpenMenuId] = useState(null);
@@ -68,7 +70,7 @@ const AllPackageTable = ({ recentPackages, onEditPackage, onDeletePackage, isLoa
                                 <th className="px-5 py-3 font-semibold">Destination</th>
                                 <th className="px-5 py-3 font-semibold">Days / Nights</th>
                                 <th className="px-5 py-3 font-semibold">Type</th>
-                                <th className="px-5 py-3 font-semibold">Bookings</th>
+                                {/* <th className="px-5 py-3 font-semibold">Bookings</th> */}
                                 <th className="px-5 py-3 font-semibold">Updated</th>
                                 <th className="px-5 py-3 font-semibold" />
                             </tr>
@@ -94,11 +96,25 @@ const AllPackageTable = ({ recentPackages, onEditPackage, onDeletePackage, isLoa
                                         <td className="px-5 py-3"><div className="h-4 w-4 animate-pulse rounded bg-slate-200" /></td>
                                     </tr>
                                 ))
-                                : paginatedPackages.map((pkg, index) => (
+                                : paginatedPackages.length === 0 ? (
+                                    <tr className="border-t border-slate-100">
+                                        <td colSpan={6} className="px-5 py-10 text-center text-sm text-slate-500">
+                                            No result found
+                                        </td>
+                                    </tr>
+                                ) : paginatedPackages.map((pkg, index) => (
                                 <tr key={pkg.id || pkg.name} className="border-t border-slate-100">
                                     <td className="px-5 py-3">
                                         <div className="flex items-center gap-3">
-                                            <img src={pkg.image} alt={pkg.name} className="h-10 w-10 rounded-lg object-cover" />
+                                            <img
+                                                src={pkg.image}
+                                                alt={pkg.name}
+                                                className="h-10 w-10 rounded-lg object-cover"
+                                                onError={(e) => {
+                                                    e.currentTarget.onerror = null;
+                                                    e.currentTarget.src = fallbackPackageImage;
+                                                }}
+                                            />
                                             <div>
                                                 <p className="font-semibold text-slate-800">{pkg.name}</p>
                                                 <p className="text-xs text-slate-500">{pkg.route}</p>
@@ -112,7 +128,7 @@ const AllPackageTable = ({ recentPackages, onEditPackage, onDeletePackage, isLoa
                                             {pkg.type}
                                         </span>
                                     </td>
-                                    <td className="px-5 py-3">{pkg.bookings}</td>
+                                    {/* <td className="px-5 py-3">{pkg.bookings}</td> */}
                                     <td className="px-5 py-3">{pkg.updated}</td>
                                     <td className="px-5 py-3">
                                         <div className="relative" ref={openMenuId === (pkg.id || pkg.name) ? menuRef : null}>

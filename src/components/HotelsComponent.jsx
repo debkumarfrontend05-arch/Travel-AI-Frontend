@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { fetchHotels, addHotel, updateHotel, deleteHotel as deleteHotelApi } from "../api";
+import toast from "react-hot-toast";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=900&q=80";
@@ -177,7 +178,7 @@ const HotelsComponent = () => {
       loadHotels();
       closeFormModal();
     } catch (error) {
-      alert("Error saving hotel: " + error.message);
+      toast.error("Error saving hotel: " + error.message);
     }
   };
 
@@ -193,7 +194,7 @@ const HotelsComponent = () => {
       if (detailHotelId === deleteHotelId) setDetailHotelId(null);
       setDeleteHotelId(null);
     } catch (error) {
-      alert("Error deleting hotel: " + error.message);
+      toast.error("Error deleting hotel: " + error.message);
     }
   };
 
@@ -406,7 +407,7 @@ const HotelsComponent = () => {
       </section>
 
       {isFormModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+        <div data-lenis-prevent className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
           <div className="flex max-h-[86vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-6 py-4">
               <div className="flex items-start justify-between gap-4">
@@ -431,8 +432,8 @@ const HotelsComponent = () => {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
-              <div className="grid flex-1 gap-4 overflow-y-auto p-6 md:grid-cols-2">
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div data-lenis-prevent className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-6 md:grid-cols-2">
                 <label className="space-y-1.5">
                   <span className="text-sm font-medium text-slate-700">Hotel Name</span>
                   <div className="relative">

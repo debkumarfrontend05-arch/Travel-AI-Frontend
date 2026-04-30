@@ -14,6 +14,7 @@ import {
   Check
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import toast from "react-hot-toast";
 
 // API BASE URL
 const API_URL = "http://localhost:3000/api";
@@ -102,14 +103,14 @@ const CreatePackage = () => {
       setItinerary(data.itinerary);
       setStep(3);
     } catch (err) {
-      alert("AI Generation failed.");
+      toast.error("AI Generation failed.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleMDUpload = async () => {
-    if (!mdFileContent) return alert("Please paste markdown content");
+    if (!mdFileContent) return toast.error("Please paste markdown content");
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/packages/parse-md`, {
@@ -122,7 +123,7 @@ const CreatePackage = () => {
       if (data.title) setBaseInfo({...baseInfo, title: data.title});
       setStep(3);
     } catch (err) {
-      alert("Parsing failed.");
+      toast.error("Parsing failed.");
     } finally {
       setLoading(false);
     }
@@ -138,7 +139,7 @@ const CreatePackage = () => {
       const data = await res.json();
       setGeneratedPrompt(data.prompt);
     } catch (err) {
-      alert("Failed to generate prompt.");
+      toast.error("Failed to generate prompt.");
     }
   };
 
@@ -159,7 +160,7 @@ const CreatePackage = () => {
         body: JSON.stringify(payload)
       });
       if (res.ok) navigate('/');
-      else alert("Failed to save package.");
+      else toast.error("Failed to save package.");
     } catch (err) {
       console.error(err);
     } finally {
