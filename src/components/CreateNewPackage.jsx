@@ -129,6 +129,19 @@ const aiInitialDays = [
   },
 ];
 
+const aiCitiesByState = {
+  Goa: ["Panaji", "Calangute", "Candolim", "Anjuna", "Baga"],
+  Maharashtra: ["Mumbai", "Pune", "Nashik", "Nagpur"],
+  Rajasthan: ["Jaipur", "Udaipur", "Jodhpur", "Jaisalmer"],
+  Kerala: ["Kochi", "Munnar", "Alleppey", "Kovalam"],
+  "Himachal Pradesh": ["Shimla", "Manali", "Dharamshala", "Kasol"],
+  Uttarakhand: ["Dehradun", "Nainital", "Mussoorie", "Rishikesh"],
+  Karnataka: ["Bengaluru", "Mysuru", "Coorg", "Hampi"],
+  "Tamil Nadu": ["Chennai", "Ooty", "Madurai", "Kodaikanal"],
+};
+
+const aiStates = Object.keys(aiCitiesByState);
+
 const customSelectStyles = {
   control: (base, state) => ({
     ...base,
@@ -227,6 +240,8 @@ const CreateNewPackage = ({ onPackageCreated }) => {
     )].sort((a, b) => a.localeCompare(b));
     return liveCities.length ? liveCities : aiCityOptions;
   }, [locations, aiForm.state, aiCityOptions]);
+  const selectedAiState = aiForm.state || aiStateOptions[0] || "";
+  const selectedAiCity = aiForm.city || aiCityOptionsLive[0] || "";
   const destinationOptions = useMemo(
     () =>
       [...new Set(locations.map((location) => location.state).filter(Boolean))]
